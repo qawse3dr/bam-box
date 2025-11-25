@@ -1,53 +1,54 @@
 /*
  * Copyright (C) 2025 Larry Milne (https://www.larrycloud.ca)
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include <iostream>
 
-#include "cdreader.hpp"
-#include "audioplayer.hpp"
+#include <alsa/asoundlib.h>
 
-int main() {
-  std::cout << "Welcome to bambox" << std::endl;
-  bambox::CdReader cd("/dev/umasscd0");
-  bambox::AudioPlayer audio_player;
+#include <string>
+#include <vector>
+#include <unordered_map>
 
-  audio_player.create_device("pcmC1D0p");
+namespace bambox {
+class AudioPlayer {
+public:
+  struct AudioDevice {
+    std::string name = {};
+    snd_pcm_t *handle = NULL;
+    uint8_t volume = 100;
+  };
 
-  cd.load();
+private:
+  AudioDevice *current_dev_ = nullptr;
+  std::unordered_map<std::string, AudioDevice> devs_{};
 
-  auto disc = cd.get_disc();
+public:
+  /// TODO change to config
+  AudioPlayer();
+  ~AudioPlayer();
 
-  std::cout << "Playing cd: \"" << disc.title_ << "\" by: " << disc.artist_ << std::endl;
-  for (size_t i = 1; i <= disc.songs_.size(); i++) {
-    std::cout << "track(" << i << "): \"" << disc.songs_[i-1].title_ << "\" by: " << disc.songs_[i-1].artist_ << std::endl;
-  }
+  int create_device(const std::string &dev_name);
+  int select_device(const std::string &dev_name);
+  int set_volume(uint8_t volume_percent);
 
+  int write(void *data, int frames);
+};
 
-  for (size_t i = 1; i <= disc.songs_.size(); i++) {
-    std::cout << "Playing track(" << i << "): \"" << disc.songs_[i-1].title_ << "\" by: " << disc.songs_[i-1].artist_ << std::endl;
-    cd.play_track(i, [&] (const std::chrono::seconds& sec, void* data, int frames) -> int {
-      audio_player.write(data, frames);
-      return 0;
-    });
-  }
-  
-  return 0;
-}
+} // namespace bambox
