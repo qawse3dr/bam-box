@@ -112,7 +112,14 @@ int AudioPlayer::write(void *data, int frames) {
     return -1;
   }
   // TODO this may return the amount written.
-  return snd_pcm_writei(current_dev_->handle, data, frames);
+  auto ret = snd_pcm_writei(current_dev_->handle, data, frames);
+
+  // This is a workaround for being paused.
+  // I really need to update it to not pause on overruns
+  if (ret < 0) {
+    snd_pcm_recover(current_dev_->handle, -EPIPE, 1);
+  }
+  return 0;
 }
 
 int AudioPlayer::select_device(const std::string &dev_name) {

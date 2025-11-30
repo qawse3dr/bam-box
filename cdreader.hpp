@@ -21,7 +21,9 @@
  */
 
 #include <chrono>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -46,6 +48,8 @@ public:
     std::vector<Song> songs_ = {};
   };
 
+  enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, PAUSED, NO_DISC };
+
   /**
    * @brief callback used to send data from a track.
    *
@@ -59,8 +63,18 @@ public:
 
 private:
   std::string mount_point_;
+  CD current_cd_{};
   int handle_ = -1;
-  CD current_cd_;
+  std::mutex mtx_{};
+  std::condition_variable cv_{};
+  State state_ = State::UNKNOWN;
+
+  // The LBA info of a track.
+  // Only should be considered value when state_ is PLAYING or PAUSED
+  uint32_t track_lba_start_ = 0;
+  uint32_t track_lba_current_ = 0;
+  uint32_t track_lba_end_ = 0;
+  uint32_t track_num_ = 0;
 
   constexpr static int OP_RETRY_COUNT = 10;
   constexpr static std::chrono::seconds OP_RETRY_TIMEOUT =
@@ -74,7 +88,18 @@ public:
   int load();
   int play_track(uint8_t track_num, const SongDataCallback &cb);
 
-  const CD &get_disc() { return current_cd_; }
+  const CD &get_disc() const { return current_cd_; }
+  State get_state();
+
+  /// Controls for CD
+  int pause();
+  int resume();
+
+  // TODO These should really be control from the CD caller not the cd reader
+  // itself. it should instead expose an API which stops the current playing as
+  // well as provide an api to see how far in a song we were.
+  int prev();
+  int next();
 
 private:
   /**
