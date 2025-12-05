@@ -19,12 +19,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include "cdreader.hpp"
+#include "CdReader.hpp"
 
 #include <devctl.h>
 #include <fcntl.h>
 #include <sys/dcmd_cam.h>
-
 #include <iostream>
 #include <thread>
 
@@ -204,6 +203,7 @@ int CdReader::prev() {
 
   return 0;
 }
+
 int CdReader::next() {
   std::lock_guard<std::mutex> lk(mtx_);
   if (state_ != State::PLAYING && state_ != State::PAUSED) {

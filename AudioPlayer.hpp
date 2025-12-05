@@ -19,7 +19,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
+#pragma once
+#include <cstdio>
 #include <alsa/asoundlib.h>
 
 #include <string>
@@ -30,6 +31,7 @@ namespace bambox {
 class AudioPlayer {
 public:
   struct AudioDevice {
+    std::string display_name = {};
     std::string name = {};
     snd_pcm_t *handle = NULL;
     uint8_t volume = 100;
@@ -44,10 +46,41 @@ public:
   AudioPlayer();
   ~AudioPlayer();
 
-  int create_device(const std::string &dev_name);
+  /**
+   * Creates an audio device and adds to the list of devices
+   *
+   * TODO: it should take in config instead of just the name
+   */
+  int create_device(const std::string& display_name, const std::string &dev_name, uint8_t volume);
+
+  /**
+   * Sets the current audio device.
+   */
   int select_device(const std::string &dev_name);
   int set_volume(uint8_t volume_percent);
 
+  /**
+   * @brief Get a list of all configured devices by their human readable name
+   */
+  std::vector<std::string> get_device_names() const;
+
+  /**
+   * @brief Get the human readable name of the current device
+   */
+  std::string get_selected_device_name() const;
+
+  /**
+   * @brief Pauses playback of whatever is currently cached into the stream.
+   * This is needed to avoid underruns in the buffer causing it to lock up.
+   */
+  int pause();
+
+  /**
+   * @brief Writes data into the audio buffer.
+   *
+   * @param data Data to be written into the audio stream
+   * @param frames amount of frames contained in the data. Note this is not the same as the length
+   */
   int write(void *data, int frames);
 };
 

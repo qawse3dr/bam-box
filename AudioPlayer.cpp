@@ -19,8 +19,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include "audioplayer.hpp"
+#include "AudioPlayer.hpp"
 
+#include <spdlog/spdlog.h>
 
 using bambox::AudioPlayer;
 
@@ -35,53 +36,48 @@ AudioPlayer::~AudioPlayer() {
   devs_.clear();
 }
 
-int AudioPlayer::create_device(const std::string &dev_name) {
-  AudioDevice dev;
+int AudioPlayer::create_device(const std::string &display_name, const std::string &dev_name, uint8_t volume) {
+  AudioDevice dev = {.display_name = display_name, .name = dev_name, .volume = volume};
   snd_pcm_hw_params_t *hw_params = NULL;
   snd_pcm_sw_params_t *sw_params = NULL;
   int err = 0;
   if (snd_pcm_open(&dev.handle, dev_name.c_str(), SND_PCM_STREAM_PLAYBACK, 0) != 0) {
-    perror("snd_pcm_open");
+    spdlog::error("Failed to open audio device {}({}) with: {}", display_name, dev_name, strerror(errno));
     return -1;
   }
 
   if ((err = snd_pcm_hw_params_malloc(&hw_params)) != 0) {
-    fprintf(stderr, "cannot allocate hardware parameter structure (%s)\n",
-            snd_strerror(err));
+    spdlog::error("Failed to alloc hw_params: {}", snd_strerror(err));
     return -1;
   }
 
   if ((err = snd_pcm_hw_params_any(dev.handle, hw_params)) != 0) {
-    fprintf(stderr, "cannot initialize hardware parameter structure (%s)\n",
-            snd_strerror(err));
+    spdlog::error("Failed to initialize hw_params for {} with: {}", display_name, snd_strerror(err));
     return -1;
   }
 
-  if ((err = snd_pcm_hw_params_set_access(
-           dev.handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) != 0) {
-    fprintf(stderr, "cannot set access type (%s)\n", snd_strerror(err));
+  if ((err = snd_pcm_hw_params_set_access(dev.handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) != 0) {
+    spdlog::error("Failed to access type for {} with: {}", display_name, snd_strerror(err));
     return -1;
   }
 
-  if ((err = snd_pcm_hw_params_set_format(dev.handle, hw_params,
-                                          SND_PCM_FORMAT_S16_LE)) != 0) {
-    fprintf(stderr, "cannot set sample format (%s)\n", snd_strerror(err));
+  if ((err = snd_pcm_hw_params_set_format(dev.handle, hw_params, SND_PCM_FORMAT_S16_LE)) != 0) {
+    spdlog::error("Cannot set sample format for {} with:{}", display_name, snd_strerror(err));
     return -1;
   }
 
   unsigned int rate = 44100;
-  if ((err = snd_pcm_hw_params_set_rate_near(dev.handle, hw_params, &rate,
-                                             NULL)) != 0) {
-    fprintf(stderr, "cannot set sample rate (%s)\n", snd_strerror(err));
+  if ((err = snd_pcm_hw_params_set_rate_near(dev.handle, hw_params, &rate, NULL)) != 0) {
+    spdlog::error("Cannot set sample rate for {} with:{}", display_name, snd_strerror(err));
     return -1;
   }
 
   if ((err = snd_pcm_hw_params_set_channels(dev.handle, hw_params, 2)) < 0) {
-    fprintf(stderr, "cannot set channel count (%s)\n", snd_strerror(err));
+    spdlog::error("Cannot set channel count for {} with:{}", display_name, snd_strerror(err));
     return -1;
   }
   if ((err = snd_pcm_hw_params(dev.handle, hw_params)) != 0) {
-    fprintf(stderr, "cannot set parameters (%s)\n", snd_strerror(err));
+    spdlog::error("Cannot set parameters {} with:{}", display_name, snd_strerror(err));
     return -1;
   }
   snd_pcm_hw_params_free(hw_params);
@@ -89,19 +85,18 @@ int AudioPlayer::create_device(const std::string &dev_name) {
   snd_pcm_sw_params_malloc(&sw_params);
   snd_pcm_sw_params_current(dev.handle, sw_params);
   snd_pcm_sw_params_set_start_threshold(dev.handle, sw_params,
-                                        1); // start after 1 frame
+                                        1);  // start after 1 frame
   snd_pcm_sw_params_set_avail_min(dev.handle, sw_params, 1);
 
   snd_pcm_sw_params(dev.handle, sw_params);
   snd_pcm_sw_params_free(sw_params);
 
   if ((err = snd_pcm_prepare(dev.handle)) != 0) {
-    fprintf(stderr, "cannot prepare audio interface for use (%s)\n",
-            snd_strerror(err));
+    spdlog::error("Cannot prepare audio interface {} with:{}", display_name, snd_strerror(err));
     exit(1);
   }
 
-  devs_.insert({dev_name, dev});
+  devs_.insert({display_name, dev});
   current_dev_ = &devs_[dev_name];
 
   return 0;
