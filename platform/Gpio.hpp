@@ -21,31 +21,22 @@
  */
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <map>
-#include <thread>
 #include <set>
+#include <thread>
 
 #include "BamBoxError.hpp"
 
 namespace bambox::platform {
 
 class Gpio {
-
-public:
+ public:
   using GpioIRQ = std::function<void(unsigned int gpio, bool val)>;
   using GpioIRQHandle = uint64_t;
-  enum class AltFunc {
-    INPUT = 0,
-    OUTPUT = 1,
-    ALT_0 = 4,
-    ALT_1 = 5,
-    ALT_2 = 6,
-    ALT_3 = 7,
-    ALT_4 = 3,
-    ALT_5 = 2
-  };
+  enum class AltFunc { INPUT = 0, OUTPUT = 1, ALT_0 = 4, ALT_1 = 5, ALT_2 = 6, ALT_3 = 7, ALT_4 = 3, ALT_5 = 2 };
 
   enum class PullMode { NONE = 0, UP = 1, DOWN = 2 };
 
@@ -57,16 +48,18 @@ public:
 
   };
 
-private:
+ private:
   struct IRQInfo {
     GpioIRQ func;
     GpioIRQHandle handle;
+    std::chrono::nanoseconds debounce;
+    std::chrono::time_point<std::chrono::steady_clock> last_trigger{};
   };
 
-private:
+ private:
   void gpio_ist_func();
 
-public:
+ public:
   Gpio();
   ~Gpio();
   int init();
@@ -79,8 +72,8 @@ public:
    * @note no expensive operations should be done within the irq
    *       as it will block other waiting for value.
    */
-  Expected<GpioIRQHandle> register_irq(unsigned int gpio, std::set<TriggerType> type,
-                                       GpioIRQ irq_func);
+  Expected<GpioIRQHandle> register_irq(unsigned int gpio, std::set<TriggerType> type, GpioIRQ irq_func,
+                                       std::chrono::nanoseconds debounce_timeout = std::chrono::nanoseconds(0));
   int level_get(unsigned int gpio);
 
   void pull_mode_set(unsigned int gpio, PullMode mode);
@@ -89,11 +82,11 @@ public:
   void alt_func_set(unsigned int gpio, AltFunc alt_func);
   AltFunc alt_func_get(unsigned int gpio);
 
-private:
+ private:
   volatile uint32_t *gpio_base_ = NULL;
   std::thread gpio_ist_thread_{};
 
   // map from gpio to assocated irq
   std::map<unsigned int, IRQInfo> irq_map_;
 };
-} // namespace bambox::platform
+}  // namespace bambox::platform

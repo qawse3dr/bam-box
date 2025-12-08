@@ -26,11 +26,13 @@
  */
 #include "platform/Gpio.hpp"
 
-#include <cerrno>
-#include <cstdint>
-#include <iostream>
 #include <sys/mman.h>
 #include <sys/neutrino.h>
+
+#include <cerrno>
+#include <chrono>
+#include <cstdint>
+#include <iostream>
 
 #define BCM2711_GPIO_BASE 0xfe200000
 #define BLOCK_SIZE (4 * 1024)
@@ -43,11 +45,11 @@
 #define PULL_DOWN 2
 #define PULL_UP 1
 
-#define GPIO_GPEDS0 0x40/4 // GPIO event detection register
-#define GPIO_GPREN0 0x4c/4 // GPIO rising edge detection enable
-#define GPIO_GPFEN0 0x58/4 // GPIO falling edge detection enable
-#define GPIO_GPHEN0 0x64/4 // GPIO high level detection enable
-#define GPIO_GPLEN0 0x70/4 // GPIO low level detection enable
+#define GPIO_GPEDS0 0x40 / 4  // GPIO event detection register
+#define GPIO_GPREN0 0x4c / 4  // GPIO rising edge detection enable
+#define GPIO_GPFEN0 0x58 / 4  // GPIO falling edge detection enable
+#define GPIO_GPHEN0 0x64 / 4  // GPIO high level detection enable
+#define GPIO_GPLEN0 0x70 / 4  // GPIO low level detection enable
 
 #define GPIO_BANK0_IRQ 145
 
@@ -60,9 +62,8 @@ Gpio::~Gpio() {
 }
 
 int Gpio::init() {
-  gpio_base_ = (volatile uint32_t *)mmap_device_memory(
-      NULL, BLOCK_SIZE, PROT_NOCACHE | PROT_READ | PROT_WRITE, 0,
-      BCM2711_GPIO_BASE);
+  gpio_base_ = (volatile uint32_t *)mmap_device_memory(NULL, BLOCK_SIZE, PROT_NOCACHE | PROT_READ | PROT_WRITE, 0,
+                                                       BCM2711_GPIO_BASE);
   if (gpio_base_ == MAP_FAILED) {
     return errno;
   }
@@ -75,15 +76,14 @@ void Gpio::level_set(unsigned int gpio, bool high) {
   auto *level_ptr = gpio_base_ + ((high) ? GPIO_SET : GPIO_CLR);
   *level_ptr = (0x1u << gpio);
 }
-bambox::Expected<Gpio::GpioIRQHandle>
-Gpio::register_irq(unsigned int gpio, std::set<TriggerType> type, GpioIRQ irq_func) {
-
+bambox::Expected<Gpio::GpioIRQHandle> Gpio::register_irq(unsigned int gpio, std::set<TriggerType> type,
+                                                         GpioIRQ irq_func, std::chrono::nanoseconds debounce_timeout) {
   // Disable all of them
   *(gpio_base_ + GPIO_GPREN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPFEN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPHEN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPLEN0) &= ~(1 << gpio);
-  *(gpio_base_ + GPIO_GPEDS0) = (1 << gpio); // Clear the event
+  *(gpio_base_ + GPIO_GPEDS0) = (1 << gpio);  // Clear the event
 
   if (type.count(TriggerType::RISING_EDGE)) {
     *(gpio_base_ + GPIO_GPREN0) |= (1 << gpio);
@@ -101,14 +101,12 @@ Gpio::register_irq(unsigned int gpio, std::set<TriggerType> type, GpioIRQ irq_fu
     *(gpio_base_ + GPIO_GPLEN0) |= (1 << gpio);
   }
 
-  irq_map_.insert(
-      std::pair<unsigned int, IRQInfo>(gpio, (IRQInfo){irq_func, 1, TriggerType::FALLING_EDGE}));
+  static GpioIRQHandle handle = 0;
+  irq_map_.insert(std::pair<unsigned int, IRQInfo>(gpio, (IRQInfo){irq_func, handle++, debounce_timeout}));
   return {1};
 }
 
-int Gpio::level_get(unsigned int gpio) {
-  return (*(gpio_base_ + GPIO_READ) >> gpio) & 0x1;
-}
+int Gpio::level_get(unsigned int gpio) { return (*(gpio_base_ + GPIO_READ) >> gpio) & 0x1; }
 
 void Gpio::pull_mode_set(unsigned int gpio, PullMode mode) {
   uint32_t pullreg = (GPIO_PULL_SET + (gpio >> 4));
@@ -120,10 +118,8 @@ void Gpio::pull_mode_set(unsigned int gpio, PullMode mode) {
 }
 
 Gpio::PullMode Gpio::pull_mode_get(unsigned int gpio) {
-
   const uint32_t pull_reg = *(gpio_base_ + GPIO_PULL_SET + (gpio >> 4));
-  PullMode mode =
-      static_cast<PullMode>((pull_reg >> ((gpio & 0xf) << 1)) & 0x3);
+  PullMode mode = static_cast<PullMode>((pull_reg >> ((gpio & 0xf) << 1)) & 0x3);
   return mode;
 }
 
@@ -144,11 +140,10 @@ Gpio::AltFunc Gpio::alt_func_get(unsigned int gpio) {
 }
 
 void Gpio::gpio_ist_func() {
-
   struct sched_param sp;
-  sp.sched_priority = 1; // real-time priority, >0
+  sp.sched_priority = 1;  // real-time priority, >0
   pthread_setschedparam(pthread_self(), SCHED_RR, &sp);
-  
+
   // Attach this thread to the interrupt source.
   int id = InterruptAttachThread(GPIO_BANK0_IRQ, _NTO_INTR_FLAGS_NO_UNMASK);
   if (id == -1) {
@@ -157,20 +152,22 @@ void Gpio::gpio_ist_func() {
   }
 
   while (1) {
-    int rc = InterruptWait(
-        _NTO_INTR_WAIT_FLAGS_UNMASK | _NTO_INTR_WAIT_FLAGS_FAST, NULL);
+    int rc = InterruptWait(_NTO_INTR_WAIT_FLAGS_UNMASK | _NTO_INTR_WAIT_FLAGS_FAST, NULL);
     if (rc != 0) {
       std::cout << "failed to wait for interupt" << std::endl;
       continue;
     }
 
+    auto now = std::chrono::steady_clock::now();
+
     uint32_t events = *(gpio_base_ + GPIO_GPEDS0);
-    uint32_t unmask = 0;
-    std::cout << "events=" << events << std::endl;
-    for (const auto &[gpio, irq_info] : irq_map_) {
+    for (auto &[gpio, irq_info] : irq_map_) {
       if (events & (1U << gpio)) {
+        if ((irq_info.last_trigger + irq_info.debounce) < now) {
+          irq_info.func(gpio, level_get(gpio));
+        }
+        irq_info.last_trigger = now;
         *(gpio_base_ + GPIO_GPEDS0) |= (1U << gpio);
-        irq_info.func(gpio, level_get(gpio)); 
       }
     }
     InterruptUnmask(0, id);

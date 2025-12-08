@@ -21,18 +21,21 @@
  */
 #pragma once
 
-#include "BamBoxError.hpp"
-#include "AudioPlayer.hpp"
-#include "BamBoxConfig.hpp"
-#include "CdReader.hpp"
-#include "platform/Gpio.hpp"
-
 #include <memory>
 #include <thread>
 
+#include "AudioPlayer.hpp"
+#include "BamBoxConfig.hpp"
+#include "BamBoxError.hpp"
+#include "CdReader.hpp"
+#include "platform/Gpio.hpp"
+
 namespace bambox {
 class BamBox {
-public:
+ private:
+  enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, SEEKING, PAUSED, NO_DISC, EXIT };
+
+ public:
   BamBox();
   ~BamBox();
 
@@ -40,11 +43,26 @@ public:
   void go();
   void stop();
 
-private:
+  Error pause();
+  Error resume();  // todo rename to play()?
+  Error prev();
+  Error next();
+
+ private:
+  void cd_player_loop();
+
+ private:
+  BamBoxConfig cfg_;
+
+  // Cd functions
   std::unique_ptr<CdReader> cd_reader_{};
   std::unique_ptr<AudioPlayer> audio_player_{};
   std::unique_ptr<platform::Gpio> gpio_{};
-  BamBoxConfig cfg_;
+
+  // Running state
   std::thread cd_thread_{};
+  std::mutex mtx_{};
+  std::condition_variable cv_{};
+  State state_ = State::UNKNOWN;
 };
-} // namespace bambox
+}  // namespace bambox

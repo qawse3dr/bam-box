@@ -20,18 +20,13 @@
  * SOFTWARE.
  */
 
-#include "BamBox.hpp"
-
 #include <pthread.h>
 #include <signal.h>
+#include <spdlog/spdlog.h>
 #include <sys/neutrino.h>
 #include <sys/syspage.h>
 
-#include <spdlog/spdlog.h>
-
-void signal_handler(bambox::BamBox &bambox) {}
-
-int irq = 145; // Bank 0 IRQ
+#include "BamBox.hpp"
 
 int main() {
   sigset_t set;

@@ -25,25 +25,35 @@
 
 namespace bambox {
 
-enum class ECode { ERR_OK = 0, ERR_UNKNOWN };
+enum class ECode {
+  ERR_OK = 0,
+  ERR_UNKNOWN,
+  ERR_INVAL_STATE,
+  ERR_AGAIN,
+  ERR_INVAL_ARG,
+  ERR_TIMEOUT,
+  ERR_NOFILE,
+  ERR_IO,
+  ERR_RANGE
+};
 
 struct Error {
-  Error(ECode err_code, const std::string &err_msg)
-      : code(err_code), msg(err_msg) {}
+  Error(ECode err_code, const std::string &err_msg) : code(err_code), msg(err_msg) {}
   Error() = default;
   ECode code = ECode::ERR_OK;
   std::string msg = "";
 
   bool is_error() { return code != ECode::ERR_OK; }
+  std::string str() { return msg; }
 };
 
-template <typename T> struct Expected : public Error {
+template <typename T>
+struct Expected : public Error {
   Expected() = default;
   Expected(const T &exp_val) : val(exp_val) {}
   Expected(T &&exp_val) : val(std::move(exp_val)) {}
-  Expected(ECode err_code, const std::string &err_msg)
-      : Error(err_code, err_msg) {}
+  Expected(ECode err_code, const std::string &err_msg) : Error(err_code, err_msg) {}
 
   T val{};
 };
-} // namespace bambox
+}  // namespace bambox

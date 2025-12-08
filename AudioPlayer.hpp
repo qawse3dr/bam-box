@@ -20,16 +20,16 @@
  * SOFTWARE.
  */
 #pragma once
-#include <cstdio>
 #include <alsa/asoundlib.h>
 
+#include <cstdio>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace bambox {
 class AudioPlayer {
-public:
+ public:
   struct AudioDevice {
     std::string display_name = {};
     std::string name = {};
@@ -37,11 +37,11 @@ public:
     uint8_t volume = 100;
   };
 
-private:
+ private:
   AudioDevice *current_dev_ = nullptr;
   std::unordered_map<std::string, AudioDevice> devs_{};
 
-public:
+ public:
   /// TODO change to config
   AudioPlayer();
   ~AudioPlayer();
@@ -51,7 +51,7 @@ public:
    *
    * TODO: it should take in config instead of just the name
    */
-  int create_device(const std::string& display_name, const std::string &dev_name, uint8_t volume);
+  int create_device(const std::string &display_name, const std::string &dev_name, uint8_t volume);
 
   /**
    * Sets the current audio device.
@@ -84,4 +84,4 @@ public:
   int write(void *data, int frames);
 };
 
-} // namespace bambox
+}  // namespace bambox
