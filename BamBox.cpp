@@ -223,7 +223,6 @@ bambox::Error BamBox::next() {
   }
   state_ = State::SEEKING;
   cd_reader_->stop();
-  spdlog::log("next track {}", track_num);
   return cd_reader_->set_position(track_num);
 }
 
