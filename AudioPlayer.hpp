@@ -27,13 +27,19 @@
 #include <unordered_map>
 #include <vector>
 
+#include "BamBoxConfig.hpp"
+#include "BamBoxError.hpp"
+
 namespace bambox {
 class AudioPlayer {
  public:
   struct AudioDevice {
     std::string display_name = {};
     std::string name = {};
+    std::string mixer = {};
     snd_pcm_t *handle = NULL;
+    snd_mixer_t *mixer_handle = NULL;
+    snd_mixer_elem_t *volume_element = NULL;
     uint8_t volume = 100;
   };
 
@@ -51,13 +57,14 @@ class AudioPlayer {
    *
    * TODO: it should take in config instead of just the name
    */
-  int create_device(const std::string &display_name, const std::string &dev_name, uint8_t volume);
+  Error create_device(const AudioDevCfg &cfg);
 
   /**
    * Sets the current audio device.
    */
   int select_device(const std::string &dev_name);
-  int set_volume(uint8_t volume_percent);
+  Error set_volume(uint8_t volume_percent);
+  uint8_t get_volume() const { return current_dev_->volume; }
 
   /**
    * @brief Get a list of all configured devices by their human readable name
@@ -73,7 +80,7 @@ class AudioPlayer {
    * @brief Pauses playback of whatever is currently cached into the stream.
    * This is needed to avoid underruns in the buffer causing it to lock up.
    */
-  int pause();
+  Error pause(bool resume);
 
   /**
    * @brief Writes data into the audio buffer.

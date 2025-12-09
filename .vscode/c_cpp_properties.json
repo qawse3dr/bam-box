@@ -1,0 +1,24 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "qnx",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${env:QNX_TARGET}/usr/local/include"
+      ],
+      "compilerPath": "${env:QNX_HOST}/usr/bin/ntox86_64-g++",
+      "defines": [
+        "${default}"
+      ],
+      "forcedInclude": [
+        ".vscode/preinclude.h"
+      ],
+      "cStandard": "${default}",
+      "cppStandard": "${default}",
+      "intelliSenseMode": "${default}",
+      "configurationProvider": "qnx.qnx-vscode",
+
+    }
+  ]
+}

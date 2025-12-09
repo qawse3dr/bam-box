@@ -34,7 +34,8 @@ enum class ECode {
   ERR_TIMEOUT,
   ERR_NOFILE,
   ERR_IO,
-  ERR_RANGE
+  ERR_RANGE,
+  ERR_OOM
 };
 
 struct Error {

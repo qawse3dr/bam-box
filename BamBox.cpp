@@ -47,12 +47,14 @@ bambox::Error BamBox::config(BamBoxConfig &&cfg) {
   audio_player_ = std::make_unique<AudioPlayer>();
   gpio_ = std::make_unique<platform::Gpio>();
 
+  spdlog::info("Configuring GPIO");
   if (gpio_->init() != 0) {
     return {ECode::ERR_IO, "Failed it initalize GPIO are you root?"};
   }
 
+  spdlog::info("Configuring Audio");
   for (const auto &audio_dev : cfg_.audio_devs) {
-    audio_player_->create_device(audio_dev.display_name, audio_dev.device_name, audio_dev.volume);
+    audio_player_->create_device(audio_dev);
   }
   audio_player_->select_device(cfg_.default_audio_dev);
 
@@ -130,6 +132,13 @@ void BamBox::go() {
   gpio_->alt_func_set(cfg_.prev_gpio, platform::Gpio::AltFunc::INPUT);
   gpio_->alt_func_set(cfg_.next_gpio, platform::Gpio::AltFunc::INPUT);
 
+  gpio_->pull_mode_set(cfg_.rotary_encoder.button_gpio, platform::Gpio::PullMode::UP);
+  gpio_->pull_mode_set(cfg_.rotary_encoder.clk_gpio, platform::Gpio::PullMode::UP);
+  gpio_->pull_mode_set(cfg_.rotary_encoder.data_gpio, platform::Gpio::PullMode::UP);
+  gpio_->alt_func_set(cfg_.rotary_encoder.button_gpio, platform::Gpio::AltFunc::INPUT);
+  gpio_->alt_func_set(cfg_.rotary_encoder.clk_gpio, platform::Gpio::AltFunc::INPUT);
+  gpio_->alt_func_set(cfg_.rotary_encoder.data_gpio, platform::Gpio::AltFunc::INPUT);
+
   gpio_->register_irq(
       cfg_.next_gpio, {platform::Gpio::TriggerType::FALLING_EDGE},
       [&](unsigned int gpio, bool high) {
@@ -162,6 +171,22 @@ void BamBox::go() {
         }
       },
       std::chrono::milliseconds(500));
+
+  gpio_->register_irq(cfg_.rotary_encoder.button_gpio, {platform::Gpio::TriggerType::RISING_EDGE},
+                      [&](unsigned int gpio, bool high) { spdlog::info("Rotary Encoder pressed"); });
+
+  gpio_->register_irq(cfg_.rotary_encoder.clk_gpio,
+                      {platform::Gpio::TriggerType::RISING_EDGE, platform::Gpio::TriggerType::FALLING_EDGE},
+                      [&](unsigned int gpio, bool high) {
+                        static bool old_state;
+
+                        if (high != old_state) {
+                          bool dt = gpio_->level_get(cfg_.rotary_encoder.data_gpio) != 0;
+                          int vol = static_cast<int>(audio_player_->get_volume()) + ((high == dt) ? 1 : -1);
+                          audio_player_->set_volume(std::max(vol, 0));
+                        }
+                        old_state = high;
+                      });
 }
 
 bambox::Error BamBox::pause() {
@@ -172,6 +197,7 @@ bambox::Error BamBox::pause() {
     return {ECode::ERR_INVAL_STATE, "pause(): Already paused."};
   }
   cd_reader_->stop();
+  audio_player_->pause(false);
   state_ = State::PAUSED;
   return {};
 }
@@ -185,6 +211,7 @@ bambox::Error BamBox::resume() {
   }
 
   state_ = State::PLAYING;
+  audio_player_->pause(true);
   cv_.notify_all();
   return {};
 }
@@ -195,8 +222,10 @@ bambox::Error BamBox::prev() {
     return {ECode::ERR_INVAL_STATE, "Invalid state can't select prev track."};
   }
 
-  state_ = State::SEEKING;
-  cd_reader_->stop();
+  if (state_ == State::PLAYING) {
+    state_ = State::SEEKING;
+    cd_reader_->stop();
+  }
   auto current_lba = cd_reader_->get_track_current_lba();
   auto start_lba = cd_reader_->get_track_start_lba();
   std::uint32_t three_sec_lba = MSF2LBA(0, 10, 0);
@@ -221,8 +250,10 @@ bambox::Error BamBox::next() {
   if (track_num > cd_reader_->get_disc().songs_.size()) {
     track_num = 1;
   }
-  state_ = State::SEEKING;
-  cd_reader_->stop();
+  if (state_ == State::PLAYING) {
+    state_ = State::SEEKING;
+    cd_reader_->stop();
+  }
   return cd_reader_->set_position(track_num);
 }
 

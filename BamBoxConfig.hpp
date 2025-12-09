@@ -19,6 +19,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#pragma once
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -29,13 +31,14 @@ struct AudioDevCfg {
   // TODO(qawse3dr) do all configs (format, ...)
   std::string display_name;
   std::string device_name;
-  int8_t volume;
+  std::string mixer_name;
+  uint8_t volume;
 };
 
 struct BamBoxConfig {
   std::string cd_mount_point = "/dev/umasscd0";
-  std::vector<AudioDevCfg> audio_devs = {{.display_name = "speakers", .device_name = "pcmC1D0p", .volume = 100},
-                                         {.display_name = "headphones", .device_name = "pcmC0D0p", .volume = 50}};
+  std::vector<AudioDevCfg> audio_devs = {{.display_name = "speakers", .device_name = "pcmC1D0p", .mixer_name = "controlC1", .volume = 50},
+                                         {.display_name = "headphones", .device_name = "pcmC0D0p", .mixer_name = "controlC0", .volume = 50}};
   std::string default_audio_dev = "speakers";
 
   uint8_t prev_gpio = 16;
