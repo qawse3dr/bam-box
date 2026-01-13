@@ -44,7 +44,9 @@ struct Error {
   ECode code = ECode::ERR_OK;
   std::string msg = "";
 
-  bool is_error() { return code != ECode::ERR_OK; }
+  inline bool is_error() { return code != ECode::ERR_OK; }
+  inline bool is_ok() { return code == ECode::ERR_OK; }
+
   std::string str() { return msg; }
 };
 

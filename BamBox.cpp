@@ -45,11 +45,20 @@ bambox::Error BamBox::config(BamBoxConfig &&cfg) {
   cfg_ = std::move(cfg);
   cd_reader_ = std::make_unique<CdReader>(cfg_.cd_mount_point);
   audio_player_ = std::make_unique<AudioPlayer>();
-  gpio_ = std::make_unique<platform::Gpio>();
+  gpio_ = std::make_shared<platform::Gpio>();
+  lcd_display_ = std::make_unique<LcdDisplay>(gpio_);
+  ui_ = std::make_unique<BamBoxUI>();
 
   spdlog::info("Configuring GPIO");
   if (gpio_->init() != 0) {
-    return {ECode::ERR_IO, "Failed it initalize GPIO are you root?"};
+    return {ECode::ERR_IO, "Failed it initialize GPIO are you root?"};
+  }
+
+  // Must be done after GPIO as it makes use of it
+  spdlog::info("Configuring Display");
+  auto res = lcd_display_->init();
+  if (res.is_error()) {
+    return {};
   }
 
   spdlog::info("Configuring Audio");
@@ -57,6 +66,11 @@ bambox::Error BamBox::config(BamBoxConfig &&cfg) {
     audio_player_->create_device(audio_dev);
   }
   audio_player_->select_device(cfg_.default_audio_dev);
+
+  res = ui_->init();
+  if (res.is_error()) {
+    return {};
+  }
 
   return {};
 }
@@ -68,8 +82,9 @@ void BamBox::cd_player_loop() {
       state_ = State::NO_DISC;
     }
     spdlog::info("Waiting for CD...");
-    while (cd_reader_->wait_for_disc().is_error()) {
-    }
+    ui_->set_cd_info({});
+    while (cd_reader_->wait_for_disc().is_error())
+      ;
 
     {
       std::lock_guard<std::mutex> lk(mtx_);
@@ -78,6 +93,7 @@ void BamBox::cd_player_loop() {
     auto res = cd_reader_->load();
     if (res.is_error()) {
       spdlog::warn("Failed to load CD with: {}", res.str());
+      continue;
     }
 
     {
@@ -88,10 +104,28 @@ void BamBox::cd_player_loop() {
     spdlog::info("Playing cd: \"{}\" by: \"{}\"", disc.title_, disc.artist_);
 
     cd_reader_->set_position(1);
-    while (cd_reader_->get_track_number() <= disc.songs_.size()) {
+    ui_->set_cd_info({disc});
+    while (1) {
       auto track = disc.songs_[cd_reader_->get_track_number() - 1];
       spdlog::info("Playing track({}): \"{}\" by: {}", track.track_num_, track.title_, track.artist_);
+      ui_->set_song_info(track);
+      {
+        std::unique_lock<std::mutex> lk(mtx_);
+        // If there was a seek request update the song info.
+        if (seek_request_) {
+          seek_request_ = false;
+          continue;  // Update track info.
+        }
+
+        if (is_paused_) {
+          spdlog::info("Song paused... cd thread going to sleep");
+          cv_.wait(lk, [&]() { return state_ != State::PLAYING || !is_paused_ || seek_request_; });
+          continue;  // continue to update track in case it changed when we were sleeping
+        }
+      }
+
       auto res = cd_reader_->play([&](const std::chrono::seconds &sec, void *data, int frames) -> int {
+        ui_->set_set_track_time(sec);
         audio_player_->write(data, frames);
         return 0;
       });
@@ -101,29 +135,25 @@ void BamBox::cd_player_loop() {
         if (res.is_error()) {
           spdlog::warn("Failed to play cd with: {}", res.str());
           break;
-        } else if (state_ == State::PAUSED) {
-          spdlog::info("going into sleep");
-          cv_.wait(lk, [&]() { return state_ == State::PLAYING; });
-        } else if (state_ == State::SEEKING) {
-          state_ = State::PLAYING;
-        } else {
-          // unlock to avoid deadlock in next.
+        } else if (!is_paused_ && !seek_request_) {
           lk.unlock();
-          // cd_reader_->set_position(cd_reader_->get_track_number() + 1);
-          spdlog::info("next");
           res = next();
           if (res.is_error()) {
             spdlog::warn("Failed too play next songs with: {}", res.str());
           }
-          state_ = State::PLAYING;
         }
       }
     }
   }
 }
 
-void BamBox::go() {
+bambox::Error BamBox::go() {
   cd_thread_ = std::thread([this] { this->cd_player_loop(); });
+
+  auto res = lcd_display_->go();
+  if (res.is_error()) {
+    return res;
+  }
 
   gpio_->pull_mode_set(cfg_.next_gpio, platform::Gpio::PullMode::UP);
   gpio_->pull_mode_set(cfg_.prev_gpio, platform::Gpio::PullMode::UP);
@@ -159,7 +189,7 @@ void BamBox::go() {
       cfg_.play_gpio, {platform::Gpio::TriggerType::FALLING_EDGE},
       [&](unsigned int gpio, bool high) {
         bambox::Error res;
-        if (state_ == State::PLAYING) {
+        if (!is_paused_) {
           spdlog::info("pausing song");
           res = pause();
         } else {
@@ -178,39 +208,45 @@ void BamBox::go() {
   gpio_->register_irq(cfg_.rotary_encoder.clk_gpio,
                       {platform::Gpio::TriggerType::RISING_EDGE, platform::Gpio::TriggerType::FALLING_EDGE},
                       [&](unsigned int gpio, bool high) {
-                        static bool old_state;
+                        static bool old_state = false;
 
                         if (high != old_state) {
                           bool dt = gpio_->level_get(cfg_.rotary_encoder.data_gpio) != 0;
-                          int vol = static_cast<int>(audio_player_->get_volume()) + ((high == dt) ? 1 : -1);
-                          audio_player_->set_volume(std::max(vol, 0));
+                          if (dt) { // Only do one of the bumps to avoid incrementing twice per turn.
+                            if (high == dt) {
+                              ui_->input_right();
+                            } else {
+                              ui_->input_left();
+                            }
+                            // int vol = static_cast<int>(audio_player_->get_volume()) + ((high == dt) ? 1 : -1);
+                            // audio_player_->set_volume(std::max(vol, 0));
+                          }
                         }
                         old_state = high;
                       });
+
+  // Start UI
+  return ui_->go();
 }
 
 bambox::Error BamBox::pause() {
   std::lock_guard<std::mutex> lk(mtx_);
-  if (state_ == State::PAUSED) {
-    return {ECode::ERR_AGAIN, "pause(): Already paused."};
-  } else if (state_ != State::PLAYING) {
-    return {ECode::ERR_INVAL_STATE, "pause(): Already paused."};
+  if (is_paused_ || (state_ != State::PLAYING)) {
+    return {ECode::ERR_AGAIN, "pause(): Already paused or not playing."};
   }
-  cd_reader_->stop();
   audio_player_->pause(false);
-  state_ = State::PAUSED;
+  cd_reader_->stop();
+  is_paused_ = true;
   return {};
 }
 
 bambox::Error BamBox::resume() {
   std::lock_guard<std::mutex> lk(mtx_);
-  if (state_ == State::PLAYING) {
-    return {ECode::ERR_AGAIN, "resume(): Already playing."};
-  } else if (state_ != State::PAUSED) {
-    return {ECode::ERR_INVAL_STATE, "resume: not paused"};
+  if (!is_paused_ || (state_ != State::PLAYING)) {
+    return {ECode::ERR_AGAIN, "resume(): Already playing or not disc."};
   }
 
-  state_ = State::PLAYING;
+  is_paused_ = false;
   audio_player_->pause(true);
   cv_.notify_all();
   return {};
@@ -218,12 +254,11 @@ bambox::Error BamBox::resume() {
 
 bambox::Error BamBox::prev() {
   std::lock_guard<std::mutex> lk(mtx_);
-  if (state_ != State::PLAYING && state_ != State::PAUSED) {
+  if (state_ != State::PLAYING) {
     return {ECode::ERR_INVAL_STATE, "Invalid state can't select prev track."};
   }
 
-  if (state_ == State::PLAYING) {
-    state_ = State::SEEKING;
+  if (!is_paused_) {
     cd_reader_->stop();
   }
   auto current_lba = cd_reader_->get_track_current_lba();
@@ -237,12 +272,15 @@ bambox::Error BamBox::prev() {
     }
   }  // Restart track
 
-  return cd_reader_->set_position(track_num);
+  auto res = cd_reader_->set_position(track_num);
+  seek_request_ = true;
+  cv_.notify_all();
+  return res;
 }
 
 bambox::Error BamBox::next() {
   std::lock_guard<std::mutex> lk(mtx_);
-  if (state_ != State::PLAYING && state_ != State::PAUSED) {
+  if (state_ != State::PLAYING) {
     return {ECode::ERR_AGAIN, "Invalid state can't select prev track."};
   }
 
@@ -250,11 +288,15 @@ bambox::Error BamBox::next() {
   if (track_num > cd_reader_->get_disc().songs_.size()) {
     track_num = 1;
   }
-  if (state_ == State::PLAYING) {
-    state_ = State::SEEKING;
+
+  // We must stop the song
+  if (!is_paused_) {
     cd_reader_->stop();
   }
-  return cd_reader_->set_position(track_num);
+  auto res = cd_reader_->set_position(track_num);
+  seek_request_ = true;
+  cv_.notify_all();
+  return res;
 }
 
 void BamBox::stop() {

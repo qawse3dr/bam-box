@@ -152,6 +152,19 @@ bambox::Error CdReader::do_load() {
     cd.title_ = "Untilted";
   }
 
+  for (Song &song : cd.songs_) {
+    size_t i = song.title_.find(" - ");
+    if (i != std::string::npos && song.artist_.empty()) {
+      // likely they put the artist with the song title...
+      song.artist_ = song.title_.substr(i + 3);
+      song.title_ = song.title_.substr(0, i);
+    }
+
+    // Calculate length
+    song.length_ = std::chrono::seconds(LBA2SEC(song.end_lba_ - song.start_lba_)) +
+                   std::chrono::minutes(LBA2MIN(song.end_lba_ - song.start_lba_));
+  }
+
   current_cd_ = cd;
   set_position(1);
   return {};
@@ -220,7 +233,7 @@ bambox::Error CdReader::do_play(const SongDataCallback &cb) {
     }
 
     // TODO(qawse3dr) check callback result.
-    cb(std::chrono::minutes(LBA2MIN(track_lba_current_)) + std::chrono::seconds(track_lba_current_), req.data,
+    cb(std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) + std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_)), req.data,
        CDROM_CDDA_FRAME_SIZE / 4);
 
     lk.lock();

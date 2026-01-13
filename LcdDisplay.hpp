@@ -19,60 +19,45 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#pragma once
 
-#include <memory>
+#include <screen/screen.h>
+
 #include <thread>
 
-#include "AudioPlayer.hpp"
-#include "BamBoxConfig.hpp"
 #include "BamBoxError.hpp"
-#include "BamBoxUI.hpp"
-#include "CdReader.hpp"
-#include "LcdDisplay.hpp"
 #include "platform/Gpio.hpp"
 
 namespace bambox {
-class BamBox {
- private:
-  enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
+
+class LcdDisplay {
+ public:
+  enum class State { UNINIT, INIT, RUNNING, STOPPING };
 
  public:
-  BamBox();
-  ~BamBox();
+  LcdDisplay(const std::shared_ptr<platform::Gpio>& gpio);
+  ~LcdDisplay();
 
-  Error config(BamBoxConfig &&cfg);
-
-  // Doesn't return
+  Error init();
   Error go();
 
-  void stop();
-
-  Error pause();
-  Error resume();  // todo rename to play()?
-  Error prev();
-  Error next();
-
+ private:
+  void display_loop();
+  void lcd_write_cmd(uint8_t data);
+  void lcd_write_data(uint8_t data);
+  void lcd_write_word(uint16_t data);
 
  private:
-  void cd_player_loop();
+  std::thread display_thread_{};
+  std::shared_ptr<platform::Gpio> gpio_;
+  int spi_dev_ = -1;
+  State state_ = State::UNINIT;
 
- private:
-  BamBoxConfig cfg_;
+  screen_context_t screen_ctx_{};
+  screen_display_t screen_dsy_{};
+  screen_pixmap_t screen_pix_{};
 
-  // Cd functions
-  std::unique_ptr<CdReader> cd_reader_{};
-  std::unique_ptr<AudioPlayer> audio_player_{};
-  std::shared_ptr<platform::Gpio> gpio_{};
-  std::unique_ptr<LcdDisplay> lcd_display_{};
-  std::unique_ptr<BamBoxUI> ui_{};
+  static constexpr int LCD_HEIGHT = 320;
+  static constexpr int LCD_WIDTH = 240;
 
-  // Running state
-  std::thread cd_thread_{};
-  std::mutex mtx_{};
-  std::condition_variable cv_{};
-  State state_ = State::UNKNOWN;
-  bool is_paused_ = false;
-  bool seek_request_ = false;
 };
 }  // namespace bambox

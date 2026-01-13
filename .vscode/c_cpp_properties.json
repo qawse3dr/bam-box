@@ -5,7 +5,16 @@
       "name": "qnx",
       "includePath": [
         "${workspaceFolder}/**",
-        "${env:QNX_TARGET}/usr/local/include"
+        "${env:QNX_TARGET}/usr/local/include",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/gtk-4.0",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/glib-2.0",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/lib/glib-2.0/include",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/pango-1.0",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/harfbuzz",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/cairo",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/gdk-pixbuf-2.0",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/include/graphene-1.0",
+        "/workspaces/qnx-dev/staging/aarch64le/usr/local/lib/graphene-1.0/include",
       ],
       "compilerPath": "${env:QNX_HOST}/usr/bin/ntox86_64-g++",
       "defines": [
@@ -18,7 +27,6 @@
       "cppStandard": "${default}",
       "intelliSenseMode": "${default}",
       "configurationProvider": "qnx.qnx-vscode",
-
     }
   ]
 }
