@@ -39,6 +39,7 @@ class BamBox {
  private:
   enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
   enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
+  enum class InputState { MAIN, VOLUME, LIST};
 
  public:
   BamBox();
@@ -65,6 +66,12 @@ class BamBox {
   void ui_activate();
   void ui_update_track_info();
   void ui_update_track_time(const std::chrono::seconds sec);
+
+
+  void ui_handle_input(InputType type);
+  void ui_main_input(InputType type);
+  void ui_volume_input(InputType type);
+
  private:
   BamBoxConfig cfg_;
 
@@ -89,6 +96,7 @@ class BamBox {
   GtkLabel* artist_text_{};
   GtkLabel* album_text_{};
   GtkWidget* song_progress_{};
+  InputState input_state_ = InputState::MAIN;
 
   size_t selected_button_idx_ = 0;
   std::vector<GtkButton*> buttons_{};

@@ -2,11 +2,6 @@ window {
   background-color: #1f1f1f;
 }
 
-.big-button-icon {
-  color: #EE44FF;
-}
-
-
 .big-button {
   font-size:28px;
   background-image: none;      /* REMOVE default background */
@@ -60,7 +55,7 @@ progressbar.volume-overlay text {
 }
 
 .volume-overlay-box {
-  background-color:#EE44FF;
+  background-color: gray;
   margin: 20px;
 }
 

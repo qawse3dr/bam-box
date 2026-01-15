@@ -168,84 +168,53 @@ bambox::Error BamBox::go() {
   gpio_->register_irq(
       cfg_.next_gpio, {platform::Gpio::TriggerType::FALLING_EDGE},
       [&](unsigned int gpio, bool high) {
-        spdlog::info("next song");
-        next();
+        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::NEXT); };
+        g_idle_add_once(cb, this);
       },
       std::chrono::milliseconds(500));
 
   gpio_->register_irq(
       cfg_.prev_gpio, {platform::Gpio::TriggerType::FALLING_EDGE},
       [&](unsigned int gpio, bool high) {
-        spdlog::info("previous song");
-        prev();
+        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::PREV); };
+        g_idle_add_once(cb, this);
       },
       std::chrono::milliseconds(500));
 
   gpio_->register_irq(
       cfg_.play_gpio, {platform::Gpio::TriggerType::FALLING_EDGE},
       [&](unsigned int gpio, bool high) {
-        bambox::Error res;
-        if (!is_paused_) {
-          spdlog::info("pausing song");
-          res = pause();
-        } else {
-          spdlog::info("resuming song");
-          res = resume();
-        }
-        if (res.is_error()) {
-          spdlog::warn("Failed to play/pause with: {}", res.str());
-        }
+        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::PLAY); };
+        g_idle_add_once(cb, this);
       },
       std::chrono::milliseconds(500));
 
   gpio_->register_irq(cfg_.rotary_encoder.button_gpio, {platform::Gpio::TriggerType::RISING_EDGE},
                       [&](unsigned int gpio, bool high) {
-                        spdlog::info("Rotary Encoder pressed");
-
-                        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) {
-                          gtk_widget_activate(GTK_WIDGET(bambox->buttons_[bambox->selected_button_idx_]));
-                        };
+                        spdlog::trace("Rotary Encoder pressed");
+                        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::PRESS); };
                         g_idle_add_once(cb, this);
                       });
 
-  gpio_->register_irq(
-      cfg_.rotary_encoder.clk_gpio,
-      {platform::Gpio::TriggerType::RISING_EDGE, platform::Gpio::TriggerType::FALLING_EDGE},
-      [&](unsigned int gpio, bool high) {
-        static bool old_state = false;
+  gpio_->register_irq(cfg_.rotary_encoder.clk_gpio,
+                      {platform::Gpio::TriggerType::RISING_EDGE, platform::Gpio::TriggerType::FALLING_EDGE},
+                      [&](unsigned int gpio, bool high) {
+                        static bool old_state = false;
 
-        if (high != old_state) {
-          bool dt = gpio_->level_get(cfg_.rotary_encoder.data_gpio) != 0;
-          if (dt) {  // Only do one of the bumps to avoid incrementing twice per turn.
-            GSourceOnceFunc cb;
-            if (high == dt) {
-              cb = (GSourceOnceFunc) + [](BamBox* bambox) {
-                if (bambox->selected_button_idx_ < (bambox->buttons_.size() - 1)) {
-                  gtk_widget_unset_state_flags(GTK_WIDGET(bambox->buttons_[bambox->selected_button_idx_]),
-                                               GTK_STATE_FLAG_PRELIGHT);
-                  bambox->selected_button_idx_++;
-                  gtk_widget_set_state_flags(GTK_WIDGET(bambox->buttons_[bambox->selected_button_idx_]),
-                                             GTK_STATE_FLAG_PRELIGHT, FALSE);
-                }
-              };
-            } else {
-              cb = (GSourceOnceFunc) + [](BamBox* bambox) {
-                if (bambox->selected_button_idx_ > 0) {
-                  gtk_widget_unset_state_flags(GTK_WIDGET(bambox->buttons_[bambox->selected_button_idx_]),
-                                               GTK_STATE_FLAG_PRELIGHT);
-                  bambox->selected_button_idx_--;
-                  gtk_widget_set_state_flags(GTK_WIDGET(bambox->buttons_[bambox->selected_button_idx_]),
-                                             GTK_STATE_FLAG_PRELIGHT, FALSE);
-                }
-              };
-            }
-            g_idle_add_once(cb, this);
-            // int vol = static_cast<int>(audio_player_->get_volume()) + ((high == dt) ? 1 : -1);
-            // audio_player_->set_volume(std::max(vol, 0));
-          }
-        }
-        old_state = high;
-      });
+                        if (high != old_state) {
+                          bool dt = gpio_->level_get(cfg_.rotary_encoder.data_gpio) != 0;
+                          if (dt) {  // Only do one of the bumps to avoid incrementing twice per turn.
+                            GSourceOnceFunc cb;
+                            if (high == dt) {
+                              cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::RIGHT); };
+                            } else {
+                              cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::LEFT); };
+                            }
+                            g_idle_add_once(cb, this);
+                          }
+                        }
+                        old_state = high;
+                      });
 
   app_ = gtk_application_new("ca.larrycloud.bambox", G_APPLICATION_DEFAULT_FLAGS);
   g_signal_connect(app_, "activate",
@@ -357,14 +326,13 @@ void BamBox::ui_activate() {
   volume_overlay_ = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
   gtk_widget_add_css_class(volume_overlay_, "volume-overlay-box");
 
-  
   gtk_widget_set_halign(volume_overlay_, GTK_ALIGN_FILL);
   gtk_widget_set_valign(volume_overlay_, GTK_ALIGN_CENTER);
   gtk_widget_set_hexpand(volume_overlay_, true);
   gtk_widget_set_vexpand(volume_overlay_, false);
   volume_overlay_level_ = GTK_PROGRESS_BAR(gtk_progress_bar_new());
   gtk_widget_add_css_class(GTK_WIDGET(volume_overlay_level_), "volume-overlay");
-  
+
   auto volume_overlay_text = gtk_label_new("Volume");
   gtk_widget_add_css_class(volume_overlay_text, "volume-overlay-text");
 
@@ -409,9 +377,9 @@ void BamBox::ui_activate() {
 
   buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("volume-symbolic")));
   g_signal_connect(buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
-                     spdlog::info("Volume onclick");
-                     // Toggle Visible.
-                     gtk_widget_set_visible(bambox->volume_overlay_, !gtk_widget_get_visible(bambox->volume_overlay_));
+                     bambox->input_state_ = InputState::VOLUME;
+                     gtk_progress_bar_set_fraction(bambox->volume_overlay_level_, static_cast<double>(bambox->audio_player_->get_volume()) / 100);
+                     gtk_widget_set_visible(bambox->volume_overlay_, true);
                    }),
                    this);
   buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("headphone-symbolic")));
@@ -491,4 +459,73 @@ void BamBox::ui_update_track_time(const std::chrono::seconds sec) {
     gtk_progress_bar_set_text(GTK_PROGRESS_BAR(bambox->song_progress_), time_text.c_str());
   });
   g_idle_add_once(cb, this);
+}
+
+void BamBox::ui_handle_input(InputType type) {
+  switch (input_state_) {
+    case InputState::MAIN:
+      ui_main_input(type);
+      break;
+    case InputState::VOLUME:
+      ui_volume_input(type);
+      break;
+    case InputState::LIST:
+      break;
+  }
+}
+
+void BamBox::ui_main_input(InputType type) {
+  switch (type) {
+    case InputType::LEFT:
+    case InputType::RIGHT: {
+      gtk_widget_unset_state_flags(GTK_WIDGET(buttons_[selected_button_idx_]), GTK_STATE_FLAG_PRELIGHT);
+      size_t inc = ((type == InputType::LEFT) ? -1 : 1);
+      selected_button_idx_ = std::max(0UL, std::min(buttons_.size() - 1UL, selected_button_idx_ + inc));
+      gtk_widget_set_state_flags(GTK_WIDGET(buttons_[selected_button_idx_]), GTK_STATE_FLAG_PRELIGHT, FALSE);
+      break;
+    }
+    case InputType::PRESS:
+      gtk_widget_activate(GTK_WIDGET(buttons_[selected_button_idx_]));
+      break;
+    case InputType::PLAY: {
+      bambox::Error res;
+      if (!is_paused_) {
+        spdlog::info("pausing song");
+        res = pause();
+      } else {
+        spdlog::info("resuming song");
+        res = resume();
+      }
+      if (res.is_error()) {
+        spdlog::warn("Failed to play/pause with: {}", res.str());
+      }
+      break;
+    }
+    case InputType::PREV:
+      prev();
+      break;
+    case InputType::NEXT:
+      next();
+      break;
+  }
+}
+void BamBox::ui_volume_input(InputType type) {
+  switch (type) {
+    case InputType::LEFT:
+    case InputType::RIGHT: {
+      int vol = static_cast<int>(audio_player_->get_volume()) + ((type == InputType::RIGHT) ? 1 : -1);
+      audio_player_->set_volume(std::max(vol, 0));
+      gtk_progress_bar_set_fraction(volume_overlay_level_, static_cast<double>(vol) / 100);
+      break;
+    }
+    case InputType::PRESS:
+      gtk_widget_set_visible(volume_overlay_, false);
+      input_state_ = InputState::MAIN;
+      break;
+    // do nothing
+    case InputType::PLAY:
+    case InputType::PREV:
+    case InputType::NEXT:
+      break;
+  }
 }
