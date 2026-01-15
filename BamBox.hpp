@@ -27,36 +27,44 @@
 #include "AudioPlayer.hpp"
 #include "BamBoxConfig.hpp"
 #include "BamBoxError.hpp"
-#include "BamBoxUI.hpp"
 #include "CdReader.hpp"
 #include "LcdDisplay.hpp"
 #include "platform/Gpio.hpp"
+
+#include <gtk/gtk.h>
+
 
 namespace bambox {
 class BamBox {
  private:
   enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
+  enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
 
  public:
   BamBox();
-  ~BamBox();
+  virtual ~BamBox();
+  BamBox(BamBox&&) = delete;
+  BamBox(const BamBox&) = delete;
 
-  Error config(BamBoxConfig &&cfg);
-
+  
   // Doesn't return
   Error go();
-
+  Error config(BamBoxConfig&& cfg);
   void stop();
 
+  // Music controls
   Error pause();
   Error resume();  // todo rename to play()?
   Error prev();
   Error next();
 
-
  private:
   void cd_player_loop();
 
+  // UI calls
+  void ui_activate();
+  void ui_update_track_info();
+  void ui_update_track_time(const std::chrono::seconds sec);
  private:
   BamBoxConfig cfg_;
 
@@ -65,7 +73,6 @@ class BamBox {
   std::unique_ptr<AudioPlayer> audio_player_{};
   std::shared_ptr<platform::Gpio> gpio_{};
   std::unique_ptr<LcdDisplay> lcd_display_{};
-  std::unique_ptr<BamBoxUI> ui_{};
 
   // Running state
   std::thread cd_thread_{};
@@ -74,5 +81,21 @@ class BamBox {
   State state_ = State::UNKNOWN;
   bool is_paused_ = false;
   bool seek_request_ = false;
+
+  // UI application
+  GtkWidget* window_{};
+  GtkApplication* app_{};
+  GtkLabel* title_text_{};
+  GtkLabel* artist_text_{};
+  GtkLabel* album_text_{};
+  GtkWidget* song_progress_{};
+
+  size_t selected_button_idx_ = 0;
+  std::vector<GtkButton*> buttons_{};
+
+  GtkWidget* volume_overlay_{};
+  GtkProgressBar* volume_overlay_level_{};
+
+  std::chrono::seconds current_time_{};
 };
 }  // namespace bambox

@@ -273,4 +273,4 @@ bambox::Error CdReader::wait_for_disc() {
   }
   return {bambox::ECode::ERR_TIMEOUT, "no disc"};
 }
-bool CdReader::has_disc() { return access(mount_point_.c_str(), R_OK); }
+bool CdReader::has_disc() { return 0 == access(mount_point_.c_str(), R_OK); }

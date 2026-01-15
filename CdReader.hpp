@@ -95,9 +95,12 @@ class CdReader {
   Error stop();
 
   const CD &get_disc() const { return current_cd_; }
+  const Song &get_current_song() const {return current_cd_.songs_[track_num_-1];}
 
   // TODO maybe we should just provide them with an offset.
-  uint32_t get_track_current_lba() const { return track_lba_current_; }
+  uint32_t get_track_current_lba() const {
+    return track_lba_current_;
+  }
   uint32_t get_track_start_lba() const { return track_lba_start_; }
   uint32_t get_track_number() const { return track_num_; }
 
