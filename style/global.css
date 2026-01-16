@@ -3,7 +3,7 @@ window {
 }
 
 .big-button {
-  font-size:28px;
+  border-width: 5px;
   background-image: none;      /* REMOVE default background */
   box-shadow: none;            /* REMOVE theme shadows */
   background-color: white;
@@ -11,7 +11,6 @@ window {
 }
 
 .big-button:hover {
-  border-width: 5px;
   border-color: blue;
   border-style: solid;
   background-image: none;      /* REMOVE default background */

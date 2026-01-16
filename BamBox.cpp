@@ -206,7 +206,8 @@ bambox::Error BamBox::go() {
                           if (dt) {  // Only do one of the bumps to avoid incrementing twice per turn.
                             GSourceOnceFunc cb;
                             if (high == dt) {
-                              cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::RIGHT); };
+                              cb =
+                                  (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::RIGHT); };
                             } else {
                               cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::LEFT); };
                             }
@@ -378,19 +379,30 @@ void BamBox::ui_activate() {
   buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("volume-symbolic")));
   g_signal_connect(buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
                      bambox->input_state_ = InputState::VOLUME;
-                     gtk_progress_bar_set_fraction(bambox->volume_overlay_level_, static_cast<double>(bambox->audio_player_->get_volume()) / 100);
+                     gtk_progress_bar_set_fraction(bambox->volume_overlay_level_,
+                                                   static_cast<double>(bambox->audio_player_->get_volume()) / 100);
                      gtk_widget_set_visible(bambox->volume_overlay_, true);
                    }),
                    this);
   buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("headphone-symbolic")));
+  g_signal_connect(buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                    //  bambox->input_state_ = InputState::LIST;
+                   }),
+                   this);
   buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("song_list-symbolic")));
+  buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("eject-symbolic")));
+  g_signal_connect(buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                     bambox->cd_reader_->eject();
+                     bambox->ui_update_track_info();
+                   }),
+                   this);
   buttons_.push_back(GTK_BUTTON(gtk_button_new_from_icon_name("settings-symbolic")));
+
 
   // Select the first button.
   gtk_widget_set_state_flags(GTK_WIDGET(buttons_.front()), GTK_STATE_FLAG_PRELIGHT, FALSE);
   for (auto* button : buttons_) {
-    gtk_widget_add_css_class(gtk_button_get_child(button), "big-button-icon");
-    gtk_image_set_pixel_size(GTK_IMAGE(gtk_button_get_child(button)), 56);
+    gtk_image_set_pixel_size(GTK_IMAGE(gtk_button_get_child(button)), 48);
     gtk_widget_add_css_class(GTK_WIDGET(button), "big-button");
     gtk_widget_set_hexpand(GTK_WIDGET(button), true);
     gtk_box_append(GTK_BOX(button_box), GTK_WIDGET(button));

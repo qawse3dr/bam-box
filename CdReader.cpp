@@ -69,6 +69,7 @@ bambox::Error CdReader::do_load() {
 
   if (handle_ != -1) {
     close(handle_);
+    handle_ = -1;
   }
 
   handle_ = open(mount_point_.c_str(), O_RDONLY);
@@ -203,6 +204,15 @@ bambox::Error CdReader::do_eject() {
   if (ret == -1) {
     return {ECode::ERR_UNKNOWN, "Failed to eject disc."};
   }
+
+  CD cd;
+  current_cd_ = cd;  // clear the cd
+
+  if (handle_ != -1) {
+    close(handle_);
+    handle_ = -1;
+  }
+
   return {};
 }
 
