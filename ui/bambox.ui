@@ -1,0 +1,297 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.96.3 -->
+<interface domain="ca.larrycloud.bambox">
+  <!-- interface-name bambox.ui -->
+  <!-- interface-authors qawse3dr -->
+  <requires lib="gtk" version="4.12"/>
+  <object class="GtkWindow" id="window">
+    <property name="default-height">320</property>
+    <property name="default-width">640</property>
+    <property name="title">Bambox</property>
+    <child>
+      <object class="GtkStack" id="screen-stack">
+        <child>
+          <object class="GtkStackPage" id="screen-stack-splash-screen">
+            <property name="child">
+              <object class="GtkImage">
+                <property name="file">res/logo.jpg</property>
+                <property name="halign">center</property>
+                <property name="icon-size">large</property>
+                <property name="pixel-size">512</property>
+              </object>
+            </property>
+            <property name="name">splash-screen</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStackPage" id="main-screen">
+            <property name="child">
+              <object class="GtkOverlay">
+                <property name="child">
+                  <object class="GtkBox">
+                    <property name="orientation">vertical</property>
+                    <property name="vexpand">True</property>
+                    <child>
+                      <object class="GtkBox">
+                        <child>
+                          <object class="GtkButton" id="volume-menu-button">
+                            <property name="css-classes">menu-button</property>
+                            <property name="height-request">48</property>
+                            <property name="hexpand">True</property>
+                            <property name="icon-name">audio-volume-high</property>
+                            <style>
+                              <class name="d"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="output-menu-button">
+                            <property name="css-classes">menu-button</property>
+                            <property name="hexpand">True</property>
+                            <property name="icon-name">audio-headphones</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="tracks-menu-button">
+                            <property name="css-classes">menu-button</property>
+                            <property name="hexpand">True</property>
+                            <property name="icon-name">media-playlist-play</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="eject-menu-button">
+                            <property name="css-classes">menu-button</property>
+                            <property name="hexpand">True</property>
+                            <property name="icon-name">media-eject</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="settings-menu-button">
+                            <property name="css-classes">menu-button</property>
+                            <property name="hexpand">True</property>
+                            <property name="icon-name">settings</property>
+                            <style>
+                              <class name="menu-button"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImage" id="album-art">
+                        <property name="can-focus">False</property>
+                        <property name="can-target">False</property>
+                        <property name="file">res/logo.jpg</property>
+                        <property name="margin-end">32</property>
+                        <property name="margin-start">32</property>
+                        <property name="margin-top">10</property>
+                        <property name="pixel-size">250</property>
+                        <property name="valign">center</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="track-name-text">
+                        <property name="css-classes">song-info-text</property>
+                        <property name="ellipsize">end</property>
+                        <property name="justify">center</property>
+                        <property name="label">Track Unknown</property>
+                        <property name="max-width-chars">10</property>
+                        <property name="width-chars">10</property>
+                        <property name="wrap">True</property>
+                        <style>
+                          <class name="song-info-text"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="album-text">
+                        <property name="css-classes">song-info-text</property>
+                        <property name="ellipsize">end</property>
+                        <property name="justify">center</property>
+                        <property name="label">Album Unknown</property>
+                        <property name="max-width-chars">10</property>
+                        <property name="width-chars">10</property>
+                        <property name="wrap">True</property>
+                        <style>
+                          <class name="d"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="artist-text">
+                        <property name="css-classes">song-info-text</property>
+                        <property name="ellipsize">end</property>
+                        <property name="justify">center</property>
+                        <property name="label">Artist Unknown</property>
+                        <property name="max-width-chars">10</property>
+                        <property name="width-chars">10</property>
+                        <property name="wrap">True</property>
+                        <property name="wrap-mode">char</property>
+                        <style>
+                          <class name="song-info-text"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkProgressBar" id="song-progress">
+                        <property name="hexpand">True</property>
+                        <property name="margin-bottom">10</property>
+                        <property name="margin-end">20</property>
+                        <property name="margin-start">20</property>
+                        <property name="margin-top">10</property>
+                        <property name="show-text">True</property>
+                        <property name="text">0:00/0:00</property>
+                        <property name="valign">end</property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+                <child type="overlay">
+                  <object class="GtkBox" id="volume-overlay">
+                    <property name="css-classes">overlay</property>
+                    <property name="orientation">vertical</property>
+                    <property name="overflow">hidden</property>
+                    <property name="valign">center</property>
+                    <property name="visible">False</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="css-classes">volume-label</property>
+                        <property name="halign">center</property>
+                        <property name="hexpand">True</property>
+                        <property name="justify">center</property>
+                        <property name="label">Volume</property>
+                        <property name="margin-top">20</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkProgressBar" id="volume-progress">
+                        <property name="can-focus">False</property>
+                        <property name="can-target">False</property>
+                        <property name="focus-on-click">False</property>
+                        <property name="hexpand">True</property>
+                        <property name="margin-bottom">20</property>
+                        <property name="margin-end">20</property>
+                        <property name="margin-start">40</property>
+                        <property name="margin-top">20</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="overlay">
+                  <object class="GtkBox" id="output-overlay">
+                    <property name="css-classes">overlay</property>
+                    <property name="margin-bottom">40</property>
+                    <property name="margin-end">100</property>
+                    <property name="margin-start">100</property>
+                    <property name="opacity">0.0</property>
+                    <property name="orientation">vertical</property>
+                    <property name="valign">center</property>
+                    <property name="vexpand">True</property>
+                    <property name="visible">False</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="justify">center</property>
+                        <property name="label">Output Select</property>
+                        <property name="margin-bottom">5</property>
+                        <property name="margin-top">5</property>
+                      </object>
+                    </child>
+                    <child type="overlay">
+                      <object class="GtkListBox" id="output-overlay-list">
+                        <property name="hexpand">True</property>
+                        <property name="valign">center</property>
+                        <child>
+                          <object class="GtkButton">
+                            <property name="label">Speakers</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton">
+                            <property name="label">Headphones</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton">
+                            <property name="label">USB Headset</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="overlay">
+                  <object class="GtkBox" id="tracks-overlay">
+                    <property name="css-classes">overlay</property>
+                    <property name="margin-end">100</property>
+                    <property name="margin-start">100</property>
+                    <property name="margin-top">40</property>
+                    <property name="opacity">0.0</property>
+                    <property name="orientation">vertical</property>
+                    <property name="valign">center</property>
+                    <property name="vexpand">True</property>
+                    <property name="visible">False</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="justify">center</property>
+                        <property name="label">Track Select</property>
+                        <property name="margin-bottom">5</property>
+                        <property name="margin-top">5</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkScrolledWindow">
+                        <property name="max-content-height">128</property>
+                        <property name="min-content-height">128</property>
+                        <property name="overlay-scrolling">False</property>
+                        <property name="valign">center</property>
+                        <property name="vscrollbar-policy">always</property>
+                        <property name="window-placement">bottom-left</property>
+                        <child type="overlay">
+                          <object class="GtkListBox" id="tracks-overlay-list">
+                            <property name="hexpand">True</property>
+                            <property name="valign">center</property>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label">Track 1</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label">Track 2</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label">Track 3</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label">Track 4</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label">Track 5</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="label">Track 6</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </property>
+            <property name="name">main-screen</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

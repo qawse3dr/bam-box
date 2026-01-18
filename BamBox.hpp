@@ -67,10 +67,10 @@ class BamBox {
   void ui_update_track_info();
   void ui_update_track_time(const std::chrono::seconds sec);
 
-
   void ui_handle_input(InputType type);
   void ui_main_input(InputType type);
   void ui_volume_input(InputType type);
+  void ui_list_input(InputType type);
 
  private:
   BamBoxConfig cfg_;
@@ -90,17 +90,30 @@ class BamBox {
   bool seek_request_ = false;
 
   // UI application
-  GtkWidget* window_{};
   GtkApplication* app_{};
-  GtkLabel* title_text_{};
-  GtkLabel* artist_text_{};
-  GtkLabel* album_text_{};
-  GtkWidget* song_progress_{};
   InputState input_state_ = InputState::MAIN;
 
-  size_t selected_button_idx_ = 0;
-  std::vector<GtkButton*> buttons_{};
+  // Main screen song info.
 
+  // [track, album, artist]
+  std::array<GtkLabel*, 3> song_info_text_; 
+  GtkWidget* song_progress_{};
+
+  GtkWindow* window_{};
+
+  size_t selected_button_idx_ = 0;
+  std::vector<GtkButton*> menu_buttons_{};
+  std::vector<GtkButton*>* active_lists_{};
+
+  // Stack and children screens
+  GtkStack* screen_stack_{};
+  GtkWidget* screen_stack_splash_{};
+  GtkWidget* screen_stack_main_{};
+
+
+
+  // Splash screen
+  // Volume Overlay
   GtkWidget* volume_overlay_{};
   GtkProgressBar* volume_overlay_level_{};
 

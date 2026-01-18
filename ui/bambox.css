@@ -1,0 +1,63 @@
+
+window {
+  background-color: #1f1f1f;
+}
+
+
+.song-info-text {
+  font-size: 24px;
+  color: white;
+}
+
+.volume-label {
+  font-size: 36px;
+}
+
+
+.menu-button {
+  border-width: 0px;
+  background-image: none;   
+  box-shadow: none;   
+  border-radius: 0px;
+  background-color: #38383b;
+}
+
+.menu-button:hover {
+  border-color: blue;
+  border-style: solid;
+  background-image: none;      /* REMOVE default background */
+  box-shadow: none;            /* REMOVE theme shadows */
+  background-color: gray;
+}
+
+.overlay {
+  margin-left : 50px;
+  margin-right : 50px;
+  margin-bottom: 110px;
+  margin-top: 110px;
+  background-color: gray;
+  padding: 10px;
+}
+
+
+// List Item
+.list-item {
+	margin-left: 60px;
+	margin-right:60px;
+}
+
+// Sliders
+progressbar {
+  margin-left : 10px;
+  margin-right : 10px;
+  margin-bottom: 20px;
+}
+
+progressbar text {
+    color: white;
+    font-size:28px;
+}
+
+progress, trough {
+  min-height: 13px;
+}

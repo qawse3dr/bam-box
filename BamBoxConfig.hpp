@@ -51,5 +51,9 @@ struct BamBoxConfig {
     uint8_t button_gpio = 2;
 
   } rotary_encoder;
+
+  std::string gtk_ui_path_ = "bambox.ui";
+  std::string gtk_style_path_ = "bambox.css";
+  std::string gtk_icon_path_ = "res/";
 };
 }  // namespace bambox
