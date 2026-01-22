@@ -36,8 +36,8 @@ class CdReader {
  public:
   struct Song {
     std::chrono::seconds length_ = std::chrono::seconds(0);
-    std::string title_;
-    std::string artist_;
+    std::string title_{};
+    std::string artist_{};
     uint64_t start_lba_ = 0;
     uint64_t end_lba_ = 0;
     uint8_t track_num_ = 0;
@@ -47,8 +47,11 @@ class CdReader {
     std::string title_ = "Untitled";
     std::string artist_ = "Untitled";
     std::string genre_ = "Unknown";
+    std::string release_id_{};
+    std::string album_art_path_{};
     uint64_t sectors_;
-    std::vector<Song> songs_ = {};
+    std::vector<Song> songs_{};
+    uint64_t lout_track_lba_;
   };
 
   enum class State { STOPPED, PLAYING, STOPPING };
@@ -87,6 +90,9 @@ class CdReader {
 
   Error eject();
   Error load();
+
+  /// Updates the disc info from the web or local cache.
+  Error update_disc_info();
   Error wait_for_disc();
   bool has_disc();
 
@@ -103,6 +109,9 @@ class CdReader {
   }
   uint32_t get_track_start_lba() const { return track_lba_start_; }
   uint32_t get_track_number() const { return track_num_; }
+
+  std::string get_disc_id();
+  std::string get_freedb_id();
 
  private:
   /**

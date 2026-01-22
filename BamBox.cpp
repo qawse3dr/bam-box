@@ -136,15 +136,17 @@ void BamBox::cd_player_loop() {
       continue;
     }
 
+    cd_reader_->update_disc_info();
     {
       std::lock_guard<std::mutex> lk(mtx_);
       state_ = State::PLAYING;
     }
     auto disc = cd_reader_->get_disc();
-    spdlog::info("Playing cd: \"{}\" by: \"{}\"", disc.title_, disc.artist_);
+    spdlog::info("Playing cd: \"{}\" by: \"{}\": id: {}", disc.title_, disc.artist_, cd_reader_->get_disc_id());
 
     cd_reader_->set_position(1);
     ui_update_track_info();
+    ui_update_album_art();
     while (1) {
       auto track = disc.songs_[cd_reader_->get_track_number() - 1];
       spdlog::info("Playing track({}): \"{}\" by: {}", track.track_num_, track.title_, track.artist_);
@@ -384,10 +386,8 @@ void BamBox::ui_activate() {
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_OUTPUT)));
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_TRACKS)));
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_EJECT)));
-  g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
-                     bambox->cd_reader_->eject();
-                   }),
-                   this);
+  g_signal_connect(menu_buttons_.back(), "clicked",
+                   G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void { bambox->cd_reader_->eject(); }), this);
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_SETTINGS)));
   gtk_widget_set_state_flags(GTK_WIDGET(menu_buttons_.front()), GTK_STATE_FLAG_PRELIGHT, FALSE);
   for (auto* button : menu_buttons_) {
@@ -396,6 +396,7 @@ void BamBox::ui_activate() {
 
   // todo change to GtkProgressBar
   song_progress_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SONG_INFO_PROGRESS));
+  album_art_ = GTK_IMAGE(gtk_builder_get_object(builder, GID_SONG_INFO_ALBUM_ART));
 
   screen_stack_ = GTK_STACK(gtk_builder_get_object(builder, GID_SCREEN_STACK));
 
@@ -405,6 +406,19 @@ void BamBox::ui_activate() {
 
   gtk_window_present(window_);
   g_object_unref(builder);
+}
+
+void BamBox::ui_update_album_art() {
+  auto cb = (GSourceOnceFunc)(+[](BamBox* bambox) {
+    std::string art = "logo/res.jpg";
+    if (bambox->state_ == BamBox::State::PLAYING) {
+      auto cd = bambox->cd_reader_->get_disc();
+      art = cd.album_art_path_;
+    }
+    gtk_image_set_from_file(bambox->album_art_, art.c_str()); 
+  });
+
+  g_idle_add_once(cb, this);
 }
 
 void BamBox::ui_update_track_info() {
@@ -428,7 +442,8 @@ void BamBox::ui_update_track_info() {
     }
 
     gtk_label_set_text(bambox->song_info_text_[0], title.c_str());
-    gtk_label_set_text(bambox->song_info_text_[1], album.c_str());
+    // Disable album be able to increase font size.
+    // gtk_label_set_text(bambox->song_info_text_[1], album.c_str());
     gtk_label_set_text(bambox->song_info_text_[2], artist.c_str());
   });
 

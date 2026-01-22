@@ -7,9 +7,12 @@
   <object class="GtkWindow" id="window">
     <property name="default-height">320</property>
     <property name="default-width">640</property>
+    <property name="resizable">False</property>
     <property name="title">Bambox</property>
+    <property name="valign">center</property>
     <child>
       <object class="GtkStack" id="screen-stack">
+        <property name="transition-duration">0</property>
         <child>
           <object class="GtkStackPage" id="screen-stack-splash-screen">
             <property name="child">
@@ -95,6 +98,7 @@
                         <property name="ellipsize">end</property>
                         <property name="justify">center</property>
                         <property name="label">Track Unknown</property>
+                        <property name="lines">1</property>
                         <property name="max-width-chars">10</property>
                         <property name="width-chars">10</property>
                         <property name="wrap">True</property>
@@ -104,25 +108,12 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkLabel" id="album-text">
-                        <property name="css-classes">song-info-text</property>
-                        <property name="ellipsize">end</property>
-                        <property name="justify">center</property>
-                        <property name="label">Album Unknown</property>
-                        <property name="max-width-chars">10</property>
-                        <property name="width-chars">10</property>
-                        <property name="wrap">True</property>
-                        <style>
-                          <class name="d"/>
-                        </style>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkLabel" id="artist-text">
                         <property name="css-classes">song-info-text</property>
                         <property name="ellipsize">end</property>
                         <property name="justify">center</property>
                         <property name="label">Artist Unknown</property>
+                        <property name="lines">1</property>
                         <property name="max-width-chars">10</property>
                         <property name="width-chars">10</property>
                         <property name="wrap">True</property>
@@ -149,6 +140,7 @@
                 <child type="overlay">
                   <object class="GtkBox" id="volume-overlay">
                     <property name="css-classes">overlay</property>
+                    <property name="opacity">0.0</property>
                     <property name="orientation">vertical</property>
                     <property name="overflow">hidden</property>
                     <property name="valign">center</property>

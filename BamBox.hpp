@@ -65,6 +65,7 @@ class BamBox {
   // UI calls
   void ui_activate();
   void ui_update_track_info();
+  void ui_update_album_art();
   void ui_update_track_time(const std::chrono::seconds sec);
 
   void ui_handle_input(InputType type);
@@ -98,6 +99,7 @@ class BamBox {
   // [track, album, artist]
   std::array<GtkLabel*, 3> song_info_text_; 
   GtkWidget* song_progress_{};
+  GtkImage* album_art_{};
 
   GtkWindow* window_{};
 
@@ -109,7 +111,6 @@ class BamBox {
   GtkStack* screen_stack_{};
   GtkWidget* screen_stack_splash_{};
   GtkWidget* screen_stack_main_{};
-
 
 
   // Splash screen

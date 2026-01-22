@@ -3,7 +3,7 @@
 <!-- Created with Cambalache 0.96.3 -->
 <cambalache-project version="0.96.0" target_tk="gtk-4.0">
   <css filename="bambox.css" is_global="1"/>
-  <ui filename="bambox.ui" sha256="e763ba8b2071e542381b16b65c291920b653526bc6b0518521d25f092c71d91e">
+  <ui filename="bambox.ui" sha256="850219a747f3efb2a34ab62117d30272f5389b8cc454befd417d8d19c08d993e">
     <css-provider>bambox.css</css-provider>
   </ui>
 </cambalache-project>

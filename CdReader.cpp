@@ -21,14 +21,20 @@
  */
 #include "CdReader.hpp"
 
+#include <curl/curl.h>
 #include <devctl.h>
+#include <discid/discid.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <spdlog/spdlog.h>
 #include <sys/dcmd_cam.h>
 #include <unistd.h>
 
+#include <fstream>
 #include <iostream>
 #include <mutex>
+#include <nlohmann/json.hpp>
+#include <sstream>
 #include <thread>
 
 #include "BamBoxError.hpp"
@@ -56,8 +62,14 @@ static std::vector<std::string> cd_pkt_reader(char pkt_data[12]) {
       values.push_back({});
       continue;
     }
+
     strlcpy(data, pkt_data + i, sizeof(data) - i);
-    values.push_back(data);
+    values.push_back("");
+    for (char *s = data; *s != '\0'; s++) {
+      if (isprint(*s)) {
+        values.back() += *s;
+      }
+    }
     i += strlen(data) + 1;
   }
   return values;
@@ -101,10 +113,13 @@ bambox::Error CdReader::do_load() {
       cd.songs_.back().end_lba_ = song.start_lba_ - 1;
     }
     cd.songs_.push_back(song);
+
+    spdlog::info("track {} toc= {}", i, song.start_lba_);
   }
 
   // The last track ends at the last sector
-  cd.songs_.back().end_lba_ = info.num_sctrs;  // maybe should be length?
+  cd.songs_.back().end_lba_ = info.num_sctrs;
+  cd.lout_track_lba_ = toc_data.toc_entry[toc_data.last_track].addr.lba;
 
   // Read the CD Text if it exists
   cdrom_cd_text_t cd_text = {};
@@ -165,7 +180,6 @@ bambox::Error CdReader::do_load() {
     song.length_ = std::chrono::seconds(LBA2SEC(song.end_lba_ - song.start_lba_)) +
                    std::chrono::minutes(LBA2MIN(song.end_lba_ - song.start_lba_));
   }
-
   current_cd_ = cd;
   set_position(1);
   return {};
@@ -243,8 +257,9 @@ bambox::Error CdReader::do_play(const SongDataCallback &cb) {
     }
 
     // TODO(qawse3dr) check callback result.
-    cb(std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) + std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_)), req.data,
-       CDROM_CDDA_FRAME_SIZE / 4);
+    cb(std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) +
+           std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_)),
+       req.data, CDROM_CDDA_FRAME_SIZE / 4);
 
     lk.lock();
     if (state_ != State::PLAYING) {
@@ -284,3 +299,137 @@ bambox::Error CdReader::wait_for_disc() {
   return {bambox::ECode::ERR_TIMEOUT, "no disc"};
 }
 bool CdReader::has_disc() { return 0 == access(mount_point_.c_str(), R_OK); }
+
+static DiscId *create_disc_id_from_toc(bambox::CdReader::CD cd) {
+  if (cd.songs_.size() == 0) {
+    return NULL;
+  }
+  DiscId *disc = discid_new();
+  int offsets[cd.songs_.size() + 1];
+
+  offsets[0] = cd.lout_track_lba_ + 150;
+  for (auto &song : cd.songs_) {
+    offsets[song.track_num_] = song.start_lba_ + 150;
+  }
+  bool success = discid_put(disc, cd.songs_.front().track_num_, cd.songs_.back().track_num_, offsets);
+  if (!success) {
+    spdlog::warn("Failed to get disc id with: {}", discid_get_error_msg(disc));
+    discid_free(disc);
+    return NULL;
+  }
+
+  return disc;
+}
+
+std::string CdReader::get_disc_id() {
+  DiscId *disc = create_disc_id_from_toc(current_cd_);
+  if (disc == NULL) {
+    return "";
+  }
+  std::string id = discid_get_id(disc);
+  discid_free(disc);
+  return id;
+}
+
+std::string CdReader::get_freedb_id() {
+  DiscId *disc = create_disc_id_from_toc(current_cd_);
+  if (disc == NULL) {
+    return "";
+  }
+
+  std::string id = discid_get_freedb_id(disc);
+  discid_free(disc);
+  return id;
+}
+
+bambox::Error CdReader::update_disc_info() {
+  std::unique_lock<std::mutex> lk(mtx_);
+  if (handle_ < 0) {
+    return {ECode::ERR_INVAL_STATE, "CD not loaded can't pull cd info."};
+  }
+
+  // TODO move this to a separate thread
+
+  std::string json_val = "";
+  auto disc_id = get_disc_id();
+  auto cached_path = "bambox-info/" + disc_id + ".json";
+  bool cached = false;
+  if (std::filesystem::exists(cached_path)) {
+    // Info already cached TODO(qawse3dr) we probably want a sqlite3 server for this instead of saving all
+    // the json as it will take up a bunch of space we really don't need it to.
+
+    // really the parser could read this directly but as we will replace this for sql at some point
+    // just do the lazy solution.
+    spdlog::info("info for discid={} already cached", disc_id);
+    cached = true;
+    std::ifstream fp(cached_path);
+    std::stringstream ss;
+    ss << fp.rdbuf();
+    json_val = ss.str();
+  } else {  // fetch from the interwebs
+    auto discid_url_write_ftn = +[](char *ptr, size_t size, size_t nmemb, void *userdata) -> size_t {
+      reinterpret_cast<std::string *>(userdata)->append(ptr, nmemb);
+      return nmemb;
+    };
+    CURL *curl = curl_easy_init();
+    std::string discid_url = "http://musicbrainz.org/ws/2/discid/" + get_disc_id() + "?inc=recordings+artists&fmt=json";
+    curl_easy_setopt(curl, CURLOPT_URL, discid_url.c_str());
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "bambox/0.1 (lawrencemilne38@gmail.com)");
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &json_val);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discid_url_write_ftn);
+    CURLcode curl_res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    spdlog::info("update_disc_info discid curl_res={}", curl_easy_strerror(curl_res));
+  }
+
+  try {
+    auto discid_body = nlohmann::json::parse(json_val);
+    for (auto release : discid_body["releases"]) {
+      if (release.contains("artist-credit") && release["artist-credit"].size() > 0) {
+        current_cd_.artist_ = release["artist-credit"].front()["name"];
+      }
+      current_cd_.title_ = release["title"];
+      for (auto track : release["media"][0]["tracks"]) {
+        // TODO update to get it from the track info instead.
+        int track_num = track["position"];
+        current_cd_.songs_[track_num - 1].artist_ = current_cd_.artist_;
+        current_cd_.songs_[track_num - 1].title_ = track["title"];
+      }
+      if (release["cover-art-archive"]["front"] == true) {
+        current_cd_.release_id_ = release["id"];
+        break;
+      }
+    }
+
+    // Valid body lets dump it if we don't already have it.
+    if (!cached) {
+      std::ofstream fp(cached_path);
+      fp << discid_body;
+    }
+  } catch (const std::exception &e) {
+    return {ECode::ERR_IO, "Failed to parse json with" + std::string(e.what())};
+  }
+
+  // Pull album art if it doesn't exist
+  if (!current_cd_.release_id_.empty()) {
+    current_cd_.album_art_path_ = "bambox-info/" + current_cd_.release_id_ + ".jpg";
+    if (!std::filesystem::exists(current_cd_.album_art_path_)) {
+      std::string album_art_url = "http://coverartarchive.org/release/" + current_cd_.release_id_ + "/front-250";
+      spdlog::info("Fetching album art from {}", album_art_url);
+      FILE *fp = fopen(current_cd_.album_art_path_.c_str(), "wb");
+      CURL *curl = curl_easy_init();
+      curl_easy_setopt(curl, CURLOPT_URL, album_art_url.c_str());
+      curl_easy_setopt(curl, CURLOPT_FILE, fp);
+      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
+      curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+      CURLcode curl_res = curl_easy_perform(curl);
+      spdlog::info("update_disc_info art curl_res={}", curl_easy_strerror(curl_res));
+      curl_easy_cleanup(curl);
+      fclose(fp);
+    }
+  }
+
+  return {};
+}
