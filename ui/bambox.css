@@ -1,6 +1,6 @@
 
 window {
-  background-color: #1f1f1f;
+  background-color: #222226;
 }
 
 
@@ -9,8 +9,12 @@ window {
   color: white;
 }
 
-.volume-label {
+.overlay-label {
   font-size: 36px;
+}
+
+.overlay-list {
+ font-size: 28px;
 }
 
 
@@ -61,3 +65,4 @@ progressbar text {
 progress, trough {
   min-height: 13px;
 }
+

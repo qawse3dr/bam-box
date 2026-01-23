@@ -104,7 +104,7 @@ bambox::Error AudioPlayer::create_device(const AudioDevCfg &cfg) {
   snd_mixer_selem_id_t *sid = NULL;
 
   const char *card = cfg.mixer_name.c_str();  // or "hw:0"
-  const char *selem_name = "PCM Mixer";            // adjust for your device
+  const char *selem_name = "PCM Mixer";       // adjust for your device
   // --- Open mixer ---
   if (snd_mixer_open(&dev.mixer_handle, 0) < 0) {
     spdlog::warn("Failed to open mixer {}", card);
@@ -175,15 +175,27 @@ bambox::Error AudioPlayer::pause(bool resume) {
 
 bambox::Error AudioPlayer::set_volume(uint8_t percent) {
   spdlog::info("Setting volume to {}%", percent);
-  
+
   long min, max;
   snd_mixer_selem_get_playback_volume_range(current_dev_->volume_element, &min, &max);
-  
+
   percent = std::max(0, std::min(100, static_cast<int>(percent)));
   long vol = min + (percent * (max - min)) / 100;
   snd_mixer_selem_set_playback_volume_all(current_dev_->volume_element, vol);
-  
+
   spdlog::info("volume set to {}%", percent);
   current_dev_->volume = percent;
   return {};
+}
+
+std::vector<std::string> AudioPlayer::get_device_names() const {
+  std::vector<std::string> names;
+  for (auto dev : devs_) {
+    names.push_back(dev.first);
+  }
+  return names;
+}
+
+std::string AudioPlayer::get_selected_device_name() const {
+  return current_dev_->display_name;
 }

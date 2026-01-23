@@ -73,6 +73,8 @@ const char* GID_OVERLAY_OUTPUT_LIST = "output-overlay-list";
 
 const char* GID_OVERLAY_TRACKS_LIST = "tracks-overlay-list";
 
+const char* DEFAULT_IMAGE_PATH = "res/logo.jpg";
+
 }  // namespace
 
 BamBox::BamBox() {}
@@ -123,6 +125,7 @@ void BamBox::cd_player_loop() {
     }
     spdlog::info("Waiting for CD...");
     ui_update_track_info();
+    ui_update_album_art();
     while (cd_reader_->wait_for_disc().is_error())
       ;
 
@@ -384,6 +387,29 @@ void BamBox::ui_activate() {
                    this);
 
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_OUTPUT)));
+  g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                     bambox->input_state_ = InputState::LIST;
+                     gtk_list_box_remove_all(bambox->output_overlay_list_);
+                     for (const auto& dev_name : bambox->audio_player_->get_device_names()) {
+                       auto* button = gtk_button_new_with_label(dev_name.c_str());
+                       gtk_widget_add_css_class(button, "menu-button");
+                       gtk_list_box_append(bambox->output_overlay_list_, button);
+                       g_signal_connect(button, "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                                          bambox->audio_player_->select_device(gtk_button_get_label(button));
+                                        }),
+                                        bambox);
+                     }
+
+                     // select first row
+                     bambox->list_box_select_index_ = 0;
+                     auto row = gtk_list_box_get_row_at_index(bambox->output_overlay_list_, bambox->list_box_select_index_);
+                     gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
+
+                     gtk_widget_set_visible(bambox->output_overlay_, true);
+                     gtk_widget_set_opacity(bambox->output_overlay_, 1.0);
+                   }),
+                   this);
+
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_TRACKS)));
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_EJECT)));
   g_signal_connect(menu_buttons_.back(), "clicked",
@@ -394,8 +420,7 @@ void BamBox::ui_activate() {
     gtk_image_set_pixel_size(GTK_IMAGE(gtk_button_get_child(button)), 56);
   }
 
-  // todo change to GtkProgressBar
-  song_progress_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SONG_INFO_PROGRESS));
+  song_progress_ = GTK_PROGRESS_BAR(gtk_builder_get_object(builder, GID_SONG_INFO_PROGRESS));
   album_art_ = GTK_IMAGE(gtk_builder_get_object(builder, GID_SONG_INFO_ALBUM_ART));
 
   screen_stack_ = GTK_STACK(gtk_builder_get_object(builder, GID_SCREEN_STACK));
@@ -404,18 +429,21 @@ void BamBox::ui_activate() {
   volume_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_OVERLAY_VOLUME));
   volume_overlay_level_ = GTK_PROGRESS_BAR(gtk_builder_get_object(builder, GID_OVERLAY_VOLUME_PROGRESS));
 
+  output_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_OVERLAY_OUTPUT));
+  output_overlay_list_ = GTK_LIST_BOX(gtk_builder_get_object(builder, GID_OVERLAY_OUTPUT_LIST));
+
   gtk_window_present(window_);
   g_object_unref(builder);
 }
 
 void BamBox::ui_update_album_art() {
   auto cb = (GSourceOnceFunc)(+[](BamBox* bambox) {
-    std::string art = "logo/res.jpg";
+    std::string art = DEFAULT_IMAGE_PATH;
     if (bambox->state_ == BamBox::State::PLAYING) {
       auto cd = bambox->cd_reader_->get_disc();
       art = cd.album_art_path_;
     }
-    gtk_image_set_from_file(bambox->album_art_, art.c_str()); 
+    gtk_image_set_from_file(bambox->album_art_, art.c_str());
   });
 
   g_idle_add_once(cb, this);
@@ -472,8 +500,8 @@ void BamBox::ui_update_track_time(const std::chrono::seconds sec) {
       time_text = ss.str();
     }
 
-    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(bambox->song_progress_), track_percent);
-    gtk_progress_bar_set_text(GTK_PROGRESS_BAR(bambox->song_progress_), time_text.c_str());
+    gtk_progress_bar_set_fraction(bambox->song_progress_, track_percent);
+    gtk_progress_bar_set_text(bambox->song_progress_, time_text.c_str());
   });
   g_idle_add_once(cb, this);
 }
@@ -532,14 +560,22 @@ void BamBox::ui_list_input(InputType type) {
   switch (type) {
     case InputType::LEFT:
     case InputType::RIGHT: {
-      gtk_widget_unset_state_flags(GTK_WIDGET(menu_buttons_[selected_button_idx_]), GTK_STATE_FLAG_PRELIGHT);
+      auto row = gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_);
+      gtk_widget_unset_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT);
       size_t inc = ((type == InputType::LEFT) ? -1 : 1);
-      selected_button_idx_ = std::max(0UL, std::min(menu_buttons_.size() - 1UL, selected_button_idx_ + inc));
-      gtk_widget_set_state_flags(GTK_WIDGET(menu_buttons_[selected_button_idx_]), GTK_STATE_FLAG_PRELIGHT, FALSE);
+
+      // fix this is so bad
+      list_box_select_index_ = std::max(0UL, std::min(audio_player_->get_device_names().size() - 1UL, list_box_select_index_ + inc));
+
+      row = gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_);
+      gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
       break;
     }
     case InputType::PRESS:
-      // TODO execute the list selection.
+      // todo change to generic list element.
+      gtk_widget_activate(gtk_list_box_row_get_child(gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_)));
+      gtk_widget_set_visible(output_overlay_, false);
+      input_state_ = InputState::MAIN;
       break;
     case InputType::PLAY:
     case InputType::PREV:

@@ -98,7 +98,7 @@ class BamBox {
 
   // [track, album, artist]
   std::array<GtkLabel*, 3> song_info_text_; 
-  GtkWidget* song_progress_{};
+  GtkProgressBar* song_progress_{};
   GtkImage* album_art_{};
 
   GtkWindow* window_{};
@@ -112,11 +112,15 @@ class BamBox {
   GtkWidget* screen_stack_splash_{};
   GtkWidget* screen_stack_main_{};
 
-
   // Splash screen
   // Volume Overlay
   GtkWidget* volume_overlay_{};
   GtkProgressBar* volume_overlay_level_{};
+
+  // Audio Select Overlay
+  GtkWidget* output_overlay_{};
+  GtkListBox* output_overlay_list_{};
+  int list_box_select_index_ = 0;
 
   std::chrono::seconds current_time_{};
 };

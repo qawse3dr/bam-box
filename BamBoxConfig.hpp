@@ -37,9 +37,9 @@ struct AudioDevCfg {
 
 struct BamBoxConfig {
   std::string cd_mount_point = "/dev/umasscd0";
-  std::vector<AudioDevCfg> audio_devs = {{.display_name = "speakers", .device_name = "pcmC1D0p", .mixer_name = "controlC1", .volume = 50},
-                                         {.display_name = "headphones", .device_name = "pcmC0D0p", .mixer_name = "controlC0", .volume = 50}};
-  std::string default_audio_dev = "speakers";
+  std::vector<AudioDevCfg> audio_devs = {{.display_name = "Speakers", .device_name = "pcmC1D0p", .mixer_name = "controlC1", .volume = 50},
+                                         {.display_name = "Headphones", .device_name = "pcmC0D0p", .mixer_name = "controlC0", .volume = 50}};
+  std::string default_audio_dev = "Speakers";
 
   uint8_t prev_gpio = 16;
   uint8_t play_gpio = 24;
