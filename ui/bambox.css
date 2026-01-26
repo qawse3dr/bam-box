@@ -10,11 +10,17 @@ window {
 }
 
 .overlay-label {
-  font-size: 36px;
+  font-size: 48px;
+  color: white;
 }
 
 .overlay-list {
- font-size: 28px;
+ font-size: 36px;
+}
+
+.overlay-list-text {
+ font-size: 36px;
+ color: white;
 }
 
 

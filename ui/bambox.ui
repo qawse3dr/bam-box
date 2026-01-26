@@ -244,6 +244,7 @@
                             <property name="valign">center</property>
                             <child>
                               <object class="GtkButton">
+                                <property name="css-classes">menu-button</property>
                                 <property name="label">Track 1</property>
                               </object>
                             </child>

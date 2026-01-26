@@ -239,12 +239,14 @@ bambox::Error BamBox::go() {
       },
       std::chrono::milliseconds(500));
 
-  gpio_->register_irq(cfg_.rotary_encoder.button_gpio, {platform::Gpio::TriggerType::RISING_EDGE},
-                      [&](unsigned int gpio, bool high) {
-                        spdlog::trace("Rotary Encoder pressed");
-                        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::PRESS); };
-                        g_idle_add_once(cb, this);
-                      });
+  gpio_->register_irq(
+      cfg_.rotary_encoder.button_gpio, {platform::Gpio::TriggerType::RISING_EDGE},
+      [&](unsigned int gpio, bool high) {
+        spdlog::trace("Rotary Encoder pressed");
+        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_handle_input(InputType::PRESS); };
+        g_idle_add_once(cb, this);
+      },
+      std::chrono::milliseconds(500));
 
   gpio_->register_irq(cfg_.rotary_encoder.clk_gpio,
                       {platform::Gpio::TriggerType::RISING_EDGE, platform::Gpio::TriggerType::FALLING_EDGE},
@@ -393,6 +395,7 @@ void BamBox::ui_activate() {
                      for (const auto& dev_name : bambox->audio_player_->get_device_names()) {
                        auto* button = gtk_button_new_with_label(dev_name.c_str());
                        gtk_widget_add_css_class(button, "menu-button");
+                       gtk_widget_add_css_class(gtk_button_get_child(GTK_BUTTON(button)), "overlay-list-text");
                        gtk_list_box_append(bambox->output_overlay_list_, button);
                        g_signal_connect(button, "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
                                           bambox->audio_player_->select_device(gtk_button_get_label(button));
@@ -402,7 +405,8 @@ void BamBox::ui_activate() {
 
                      // select first row
                      bambox->list_box_select_index_ = 0;
-                     auto row = gtk_list_box_get_row_at_index(bambox->output_overlay_list_, bambox->list_box_select_index_);
+                     auto row =
+                         gtk_list_box_get_row_at_index(bambox->output_overlay_list_, bambox->list_box_select_index_);
                      gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
 
                      gtk_widget_set_visible(bambox->output_overlay_, true);
@@ -441,7 +445,9 @@ void BamBox::ui_update_album_art() {
     std::string art = DEFAULT_IMAGE_PATH;
     if (bambox->state_ == BamBox::State::PLAYING) {
       auto cd = bambox->cd_reader_->get_disc();
-      art = cd.album_art_path_;
+      if (!cd.album_art_path_.empty()) {
+        art = cd.album_art_path_;
+      }
     }
     gtk_image_set_from_file(bambox->album_art_, art.c_str());
   });
@@ -565,7 +571,8 @@ void BamBox::ui_list_input(InputType type) {
       size_t inc = ((type == InputType::LEFT) ? -1 : 1);
 
       // fix this is so bad
-      list_box_select_index_ = std::max(0UL, std::min(audio_player_->get_device_names().size() - 1UL, list_box_select_index_ + inc));
+      list_box_select_index_ =
+          std::max(0UL, std::min(audio_player_->get_device_names().size() - 1UL, list_box_select_index_ + inc));
 
       row = gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_);
       gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
@@ -573,7 +580,8 @@ void BamBox::ui_list_input(InputType type) {
     }
     case InputType::PRESS:
       // todo change to generic list element.
-      gtk_widget_activate(gtk_list_box_row_get_child(gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_)));
+      gtk_widget_activate(
+          gtk_list_box_row_get_child(gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_)));
       gtk_widget_set_visible(output_overlay_, false);
       input_state_ = InputState::MAIN;
       break;
