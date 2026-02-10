@@ -83,7 +83,7 @@ bambox::Expected<Gpio::GpioIRQHandle> Gpio::register_irq(unsigned int gpio, std:
   *(gpio_base_ + GPIO_GPFEN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPHEN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPLEN0) &= ~(1 << gpio);
-  *(gpio_base_ + GPIO_GPEDS0) = (1 << gpio);  // Clear the event
+  *(gpio_base_ + GPIO_GPEDS0) |= (1U << gpio);  // Clear the event
 
   if (type.count(TriggerType::RISING_EDGE)) {
     *(gpio_base_ + GPIO_GPREN0) |= (1 << gpio);

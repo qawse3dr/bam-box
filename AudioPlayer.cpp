@@ -80,6 +80,15 @@ bambox::Error AudioPlayer::create_device(const AudioDevCfg &cfg) {
     spdlog::error("Cannot set channel count for {} with:{}", cfg.display_name, snd_strerror(err));
     return {ECode::ERR_UNKNOWN, "snd_pcm_hw_params_set_channels"};
   }
+
+  // This is done to limit the how far away the buffer is vs what is being written into the song.
+  int dir = 0;
+  uint buffer_time = 250000; // 250 ms
+  if ((err = snd_pcm_hw_params_set_buffer_time_near(dev.handle, hw_params, &buffer_time, &dir)) < 0) {
+    spdlog::error("Cannot set channel count for {} with:{}", cfg.display_name, snd_strerror(err));
+    return {ECode::ERR_UNKNOWN, "snd_pcm_hw_params_set_channels"};
+  }
+
   if ((err = snd_pcm_hw_params(dev.handle, hw_params)) != 0) {
     spdlog::error("Cannot set parameters {} with:{}", cfg.display_name, snd_strerror(err));
     return {ECode::ERR_UNKNOWN, "snd_pcm_hw_params"};

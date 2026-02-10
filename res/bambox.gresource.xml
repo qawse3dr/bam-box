@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/ca/larrycloud/bambox/icons/48x48/actions/">
+    <file>audio-headphones.png</file>
+    <file>audio-volume-high.png</file>
+    <file>media-eject.png</file>
+    <file>media-playlist-play.png</file>
+    <file>settings.png</file>
+  </gresource>
+</gresources>

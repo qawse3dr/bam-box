@@ -95,7 +95,7 @@ bambox::Error CdReader::do_load() {
   cam_devinfo_t info = {};
   int ret = devctl(handle_, DCMD_CAM_DEVINFO, &info, sizeof(info), NULL);
   if (ret != 0) {
-    return {ECode::ERR_IO, "Failed to get devinfo from CD"};
+    return {ECode::ERR_NOFILE, "Failed to get devinfo from CD"};
   }
 
   // Read the length of the tracks so we know how to play each one

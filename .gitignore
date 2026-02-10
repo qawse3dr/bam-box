@@ -3,3 +3,4 @@
 *.o
 *.dep
 bam-box
+icons.c

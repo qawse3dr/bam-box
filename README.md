@@ -22,9 +22,45 @@ cmake \
 make install
 ```
 
+TODO
+- curl
+- libdiscid
+- gtk
+
 ### Building
 This repo makes use of QNX's recursive make which can be build by simply typing make. After it is build the artifacts
 will be created under nto/aarch64/o.le
 ```
 JLEVEL=4 make
 ```
+
+### Features
+
+- [x] Playing music from CD
+- [x] Display CD information
+  - [x] Album Art
+  - [x] Artist, Song, Album
+  - [ ] Lyrics
+- [x] Auto fetch album information and art from DB
+- [x] Software Volume Controls
+- [x] Audio output selection 
+  - [x] PCM (headphones)
+  - [x] I2S (speakers)
+  - [ ] USB (usb headphone)
+- [x] CD Eject
+- [ ] Album track selection
+- [ ] Settings
+  - [ ] In UI update
+    - [ ] Default output
+    - [ ] Default Soft Volume
+  - [ ] JSON file
+- [ ] Dump FLAC files
+- [ ] Upload to webdav server
+
+### Bugs
+
+
+### Improvements
+- [ ] The design is super tightly coupled, might be better to make the cdreader and audio player singletons or create a state which allows control
+- [ ] Split the screens into separate classes instead of being part of BamBox
+- [ ] Finish custom BSP that can be build from a single cmd

@@ -372,7 +372,12 @@ void BamBox::ui_activate() {
   gtk_style_context_add_provider_for_display(display, GTK_STYLE_PROVIDER(provider),
                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   GtkIconTheme* icon_theme = gtk_icon_theme_get_for_display(display);
-  gtk_icon_theme_add_search_path(icon_theme, cfg_.gtk_icon_path_.c_str());
+
+  // const char* search_path[] = {cfg_.gtk_icon_path_.c_str(), NULL};
+  // gtk_icon_theme_set_search_path(icon_theme, search_path);
+
+  const char* resource_path[] = {"/ca/larrycloud/bambox/icons", NULL};
+  gtk_icon_theme_set_resource_path(icon_theme, resource_path);
 
   song_info_text_[0] = GTK_LABEL(gtk_builder_get_object(builder, GID_SONG_INFO_TRACK_NAME));
   song_info_text_[1] = GTK_LABEL(gtk_builder_get_object(builder, GID_SONG_INFO_ALBUM_TEXT));
@@ -421,6 +426,7 @@ void BamBox::ui_activate() {
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_SETTINGS)));
   gtk_widget_set_state_flags(GTK_WIDGET(menu_buttons_.front()), GTK_STATE_FLAG_PRELIGHT, FALSE);
   for (auto* button : menu_buttons_) {
+    gtk_widget_add_css_class((gtk_button_get_child(button)), "menu-button-icon");
     gtk_image_set_pixel_size(GTK_IMAGE(gtk_button_get_child(button)), 56);
   }
 
