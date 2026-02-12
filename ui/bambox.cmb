@@ -2,8 +2,9 @@
 <!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
 <!-- Created with Cambalache 0.96.3 -->
 <cambalache-project version="0.96.0" target_tk="gtk-4.0">
+  <gresources filename="bambox.gresource.xml" sha256="a17ccc35d6670485621c39f097658ff8f9de063db5415c1daf1ac902a2719a42"/>
   <css filename="bambox.css" is_global="1"/>
-  <ui filename="bambox.ui" sha256="38099bb55a4eebc82b5de4a966acca7474463809013a9ddbad2bf282e03515ae">
+  <ui filename="bambox.ui" sha256="fac32e4a9b39bfb9a72a447f051259b5e0ee1ed1667771b9e71292b15f0bd00d">
     <css-provider>bambox.css</css-provider>
   </ui>
 </cambalache-project>

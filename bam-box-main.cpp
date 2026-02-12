@@ -28,7 +28,7 @@
 
 #include "BamBox.hpp"
 
-int main() {
+int main(int argc, char* argv[]) {
   sigset_t set;
   sigemptyset(&set);
   sigaddset(&set, SIGQUIT);
@@ -38,7 +38,7 @@ int main() {
   spdlog::info("Welcome to bambox");
   bambox::BamBox bambox;
 
-  bambox::BamBoxConfig cfg;
+  bambox::BamBoxConfig cfg = parse_cli(argc, argv).val; // todo check error
   auto res = bambox.config(std::move(cfg));
   if (res.is_error()) {
     spdlog::error("Failed to configure bambox with: {}", res.msg);

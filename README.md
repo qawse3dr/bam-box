@@ -64,3 +64,4 @@ JLEVEL=4 make
 - [ ] The design is super tightly coupled, might be better to make the cdreader and audio player singletons or create a state which allows control
 - [ ] Split the screens into separate classes instead of being part of BamBox
 - [ ] Finish custom BSP that can be build from a single cmd
+- [ ] Make .ui and css resources to be loaded from

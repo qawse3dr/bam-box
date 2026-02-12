@@ -39,8 +39,5 @@ EXTRA_OBJS = icons.o
 
 include $(MKFILES_ROOT)/qtargets.mk
 
-generate_icons: $(PROJECT_ROOT)/res/bambox.gresource.xml
-	glib-compile-resources $(PROJECT_ROOT)/res/bambox.gresource.xml --sourcedir=$(PROJECT_ROOT)/res --generate --target $(PROJECT_ROOT)/gen/icons.c
-
-# install_extra:
-# 	cp -r ui $(INSTALL_ROOT_nto)
+generate_icons: $(PROJECT_ROOT)/ui/bambox.gresource.xml
+	glib-compile-resources $(PROJECT_ROOT)/ui/bambox.gresource.xml --sourcedir=$(PROJECT_ROOT)/ui --generate --target $(PROJECT_ROOT)/gen/icons.c

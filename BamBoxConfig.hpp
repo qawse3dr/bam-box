@@ -24,6 +24,10 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <memory>
+
+#include "BamBoxError.hpp"
+
 
 namespace bambox {
 
@@ -52,8 +56,10 @@ struct BamBoxConfig {
 
   } rotary_encoder;
 
-  std::string gtk_ui_path_ = "bambox.ui";
-  std::string gtk_style_path_ = "bambox.css";
-  std::string gtk_icon_path_ = "res/";
+  std::string gtk_ui_path_ = "/ca/larrycloud/bambox/ui/bambox.ui";
+  std::string gtk_style_path_ = "/ca/larrycloud/bambox/ui/bambox.css";
 };
+
 }  // namespace bambox
+
+bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]);

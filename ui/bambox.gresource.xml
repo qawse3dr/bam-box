@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.96.3 -->
+<gresources>
+  <gresource prefix="/ca/larrycloud/bambox/ui/">
+    <file>bambox.css</file>
+    <file>bambox.ui</file>
+    <file>res/logo.jpg</file>
+  </gresource>
+  <gresource prefix="/ca/larrycloud/bambox/icons/48x48/actions/">
+    <file alias="audio-headphones.png">res/audio-headphones.png</file>
+    <file alias="audio-volume-high.png">res/audio-volume-high.png</file>
+    <file alias="media-eject.png">res/media-eject.png</file>
+    <file alias="media-playlist-play.png">res/media-playlist-play.png</file>
+    <file alias="settings.png">res/settings.png</file>
+  </gresource>
+</gresources>

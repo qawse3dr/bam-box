@@ -17,10 +17,10 @@
           <object class="GtkStackPage" id="screen-stack-splash-screen">
             <property name="child">
               <object class="GtkImage">
-                <property name="file">res/logo.jpg</property>
                 <property name="halign">center</property>
                 <property name="icon-size">large</property>
                 <property name="pixel-size">512</property>
+                <property name="resource">/ca/larrycloud/bambox/ui/res/logo.jpg</property>
               </object>
             </property>
             <property name="name">splash-screen</property>
@@ -84,11 +84,11 @@
                       <object class="GtkImage" id="album-art">
                         <property name="can-focus">False</property>
                         <property name="can-target">False</property>
-                        <property name="file">res/logo.jpg</property>
                         <property name="margin-end">32</property>
                         <property name="margin-start">32</property>
                         <property name="margin-top">10</property>
                         <property name="pixel-size">250</property>
+                        <property name="resource">/ca/larrycloud/bambox/ui/res/logo.jpg</property>
                         <property name="valign">center</property>
                       </object>
                     </child>

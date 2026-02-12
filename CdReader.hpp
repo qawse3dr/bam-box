@@ -81,8 +81,8 @@ class CdReader {
   uint32_t track_lba_end_ = 0;
   uint32_t track_num_ = 0;
 
-  constexpr static int OP_RETRY_COUNT = 10;
-  constexpr static std::chrono::seconds OP_RETRY_TIMEOUT = std::chrono::seconds(1);
+  constexpr static int OP_RETRY_COUNT = 3;
+  constexpr static std::chrono::milliseconds OP_RETRY_TIMEOUT = std::chrono::milliseconds(100);
 
  public:
   CdReader(const std::string &cd_dev);
