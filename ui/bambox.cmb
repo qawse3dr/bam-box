@@ -4,7 +4,7 @@
 <cambalache-project version="0.96.0" target_tk="gtk-4.0">
   <gresources filename="bambox.gresource.xml" sha256="6f0544d6b0a884c2ac5d44d6441b0d9c5cb178c8d86018c9825a256be113c773"/>
   <css filename="bambox.css" is_global="1"/>
-  <ui filename="bambox.ui" sha256="2be0d38ecd6eccb520c9eb7e9de6a5eb3ebe6087ffab90a6cadf0cc45f6da9bc">
+  <ui filename="bambox.ui" sha256="89bda74be98d1e40cab81d04a0a034fceffaef47bb109f33de0e92e9b034be98">
     <css-provider>bambox.css</css-provider>
   </ui>
 </cambalache-project>

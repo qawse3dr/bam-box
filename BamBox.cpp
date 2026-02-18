@@ -45,6 +45,7 @@ namespace {
 const char* GID_SCREEN_STACK = "screen-stack";
 const char* GID_SCREEN_STACK_SPLASH_SCREEN = "splash-screen";
 const char* GID_SCREEN_STACK_MAIN_SCREEN = "main-screen";
+const char* GID_SCREEN_STACK_SETTING_SCREEN = "setting-screen";
 
 // Menu Buttons
 const char* GID_MENU_BUTTONS_VOLUME = "volume-menu-button";
@@ -426,7 +427,7 @@ void BamBox::ui_activate() {
 
                      bambox->ui_show_overlay(bambox->tracks_overlay_, InputState::LIST);
                      bambox->ui_set_list(bambox->tracks_overlay_list_, bambox->cd_reader_->get_disc().songs_.size(),
-                                         bambox->tracks_overlay_win_, bambox->cd_reader_->get_track_number() -1);
+                                         bambox->tracks_overlay_win_, bambox->cd_reader_->get_track_number() - 1);
                    }),
                    this);
 
@@ -434,6 +435,12 @@ void BamBox::ui_activate() {
   g_signal_connect(menu_buttons_.back(), "clicked",
                    G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void { bambox->cd_reader_->eject(); }), this);
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_SETTINGS)));
+  g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                     gtk_stack_set_visible_child_name(bambox->screen_stack_, GID_SCREEN_STACK_SETTING_SCREEN);
+                     bambox->input_state_ = InputState::SETTINGS;
+                   }),
+                   this);
+
   gtk_widget_set_state_flags(GTK_WIDGET(menu_buttons_.front()), GTK_STATE_FLAG_PRELIGHT, FALSE);
   for (auto* button : menu_buttons_) {
     gtk_image_set_pixel_size(GTK_IMAGE(gtk_button_get_child(button)), 56);
@@ -540,6 +547,8 @@ void BamBox::ui_handle_input(InputType type) {
     case InputState::LIST:
       ui_list_input(type);
       break;
+    case InputState::SETTINGS:
+      ui_setting_input(type);
   }
 }
 
@@ -579,6 +588,28 @@ void BamBox::ui_main_input(InputType type) {
   }
 }
 
+void BamBox::ui_setting_input(InputType type) {
+  switch (type) {
+    case InputType::LEFT:
+    case InputType::RIGHT: {
+      // gtk_widget_unset_state_flags(GTK_WIDGET(menu_buttons_[selected_button_idx_]), GTK_STATE_FLAG_PRELIGHT);
+      // size_t inc = ((type == InputType::LEFT) ? -1 : 1);
+      // selected_button_idx_ = std::max(0UL, std::min(menu_buttons_.size() - 1UL, selected_button_idx_ + inc));
+      // gtk_widget_set_state_flags(GTK_WIDGET(menu_buttons_[selected_button_idx_]), GTK_STATE_FLAG_PRELIGHT, FALSE);
+      break;
+    }
+    case InputType::PRESS:
+      gtk_widget_activate(GTK_WIDGET(menu_buttons_[selected_button_idx_]));
+      break;
+    case InputType::PLAY:
+    case InputType::PREV:
+    case InputType::NEXT:
+      gtk_stack_set_visible_child_name(screen_stack_, GID_SCREEN_STACK_MAIN_SCREEN);
+      input_state_ = InputState::MAIN;
+      break;
+  }
+}
+
 void BamBox::ui_list_input(InputType type) {
   switch (type) {
     case InputType::LEFT:
@@ -595,7 +626,7 @@ void BamBox::ui_list_input(InputType type) {
 
       // Make sure the selected element is visible
       if (active_lists_win_ != nullptr) {
-        GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(active_lists_win_);
+        GtkAdjustment* vadj = gtk_scrolled_window_get_vadjustment(active_lists_win_);
         double current = gtk_adjustment_get_value(vadj);
         double page = gtk_adjustment_get_page_size(vadj);
 

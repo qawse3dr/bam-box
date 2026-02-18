@@ -12,5 +12,8 @@
     <file alias="media-eject.png">res/media-eject.png</file>
     <file alias="media-playlist-play.png">res/media-playlist-play.png</file>
     <file alias="settings.png">res/settings.png</file>
+    <file alias="backup.png">res/backup.png</file>
+    <file alias="info.png">res/info.png</file>
+    <file alias="credit.png">res/credit.png</file>
   </gresource>
 </gresources>

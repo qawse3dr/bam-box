@@ -8,6 +8,15 @@ window {
   color: white;
 }
 
+.settings-text {
+ color: white;
+ font-size:32px;
+}
+
+.setting-menu-label {
+  font-size: 32px;
+}
+
 .overlay-label {
   font-size: 48px;
   color: white;

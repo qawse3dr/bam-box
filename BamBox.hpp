@@ -38,7 +38,7 @@ class BamBox {
  private:
   enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
   enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
-  enum class InputState { MAIN, VOLUME, LIST };
+  enum class InputState { MAIN, VOLUME, LIST, SETTINGS };
 
  public:
   BamBox();
@@ -113,6 +113,8 @@ class BamBox {
   void ui_main_input(InputType type);
   void ui_volume_input(InputType type);
   void ui_list_input(InputType type);
+  void ui_setting_input(InputType type);
+
 
  private:
   BamBoxConfig cfg_;
@@ -156,8 +158,6 @@ class BamBox {
 
   // Stack and children screens
   GtkStack* screen_stack_{};
-  GtkWidget* screen_stack_splash_{};
-  GtkWidget* screen_stack_main_{};
 
   // Volume Overlay
   GtkWidget* volume_overlay_{};
@@ -171,6 +171,8 @@ class BamBox {
   GtkWidget* tracks_overlay_{};
   GtkListBox* tracks_overlay_list_{};
   GtkScrolledWindow* tracks_overlay_win_{};
+
+
 
   std::chrono::seconds current_time_{};
 };
