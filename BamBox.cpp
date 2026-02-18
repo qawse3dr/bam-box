@@ -418,6 +418,8 @@ void BamBox::ui_activate() {
                        auto* button = gtk_button_new_with_label(track.title_.c_str());
                        gtk_widget_add_css_class(button, "menu-button");
                        gtk_widget_add_css_class(gtk_button_get_child(GTK_BUTTON(button)), "overlay-list-text");
+                       gtk_label_set_ellipsize(GTK_LABEL(gtk_button_get_child(GTK_BUTTON(button))), PANGO_ELLIPSIZE_END);
+                       gtk_label_set_max_width_chars(GTK_LABEL(gtk_button_get_child(GTK_BUTTON(button))), 15);
                        gtk_list_box_append(bambox->tracks_overlay_list_, button);
                        g_signal_connect(button, "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
                                           bambox->next(bambox->active_lists_idx_ + 1);

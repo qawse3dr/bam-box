@@ -58,7 +58,7 @@ JLEVEL=4 make
 - [ ] Upload to webdav server
 
 ### Bugs
-- [ ] Track select looks god if song titles are to long. consider truncating
+
 
 ### Improvements
 - [ ] The design is super tightly coupled, might be better to make the cdreader and audio player singletons or create a state which allows control
