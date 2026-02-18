@@ -71,7 +71,9 @@ const char* GID_OVERLAY_VOLUME_PROGRESS = "volume-progress";
 // Output Overlay
 const char* GID_OVERLAY_OUTPUT_LIST = "output-overlay-list";
 
+// Tracks Overlay
 const char* GID_OVERLAY_TRACKS_LIST = "tracks-overlay-list";
+const char* GID_OVERLAY_TRACKS_WIN = "tracks-overlay-window";
 
 const char* DEFAULT_IMAGE_PATH = "res/logo.jpg";
 
@@ -329,13 +331,13 @@ bambox::Error BamBox::prev() {
   return res;
 }
 
-bambox::Error BamBox::next() {
+bambox::Error BamBox::next(int track) {
   std::lock_guard<std::mutex> lk(mtx_);
   if (state_ != State::PLAYING) {
     return {ECode::ERR_AGAIN, "Invalid state can't select prev track."};
   }
 
-  auto track_num = cd_reader_->get_track_number() + 1;
+  auto track_num = (track == -1) ? (cd_reader_->get_track_number() + 1) : track;
   if (track_num > cd_reader_->get_disc().songs_.size()) {
     track_num = 1;
   }
@@ -382,17 +384,14 @@ void BamBox::ui_activate() {
 
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_VOLUME)));
   g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
-                     bambox->input_state_ = InputState::VOLUME;
                      gtk_progress_bar_set_fraction(bambox->volume_overlay_level_,
                                                    static_cast<double>(bambox->audio_player_->get_volume()) / 100);
-                     gtk_widget_set_visible(bambox->volume_overlay_, true);
-                     gtk_widget_set_opacity(bambox->volume_overlay_, 1.0);
+                     bambox->ui_show_overlay(bambox->volume_overlay_, InputState::VOLUME);
                    }),
                    this);
 
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_OUTPUT)));
   g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
-                     bambox->input_state_ = InputState::LIST;
                      gtk_list_box_remove_all(bambox->output_overlay_list_);
                      for (const auto& dev_name : bambox->audio_player_->get_device_names()) {
                        auto* button = gtk_button_new_with_label(dev_name.c_str());
@@ -405,18 +404,32 @@ void BamBox::ui_activate() {
                                         bambox);
                      }
 
-                     // select first row
-                     bambox->list_box_select_index_ = 0;
-                     auto row =
-                         gtk_list_box_get_row_at_index(bambox->output_overlay_list_, bambox->list_box_select_index_);
-                     gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
-
-                     gtk_widget_set_visible(bambox->output_overlay_, true);
-                     gtk_widget_set_opacity(bambox->output_overlay_, 1.0);
+                     bambox->ui_show_overlay(bambox->output_overlay_, InputState::LIST);
+                     bambox->ui_set_list(bambox->output_overlay_list_, bambox->audio_player_->get_device_names().size(),
+                                         nullptr);
                    }),
                    this);
 
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_TRACKS)));
+  g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                     gtk_list_box_remove_all(bambox->tracks_overlay_list_);
+                     for (const auto& track : bambox->cd_reader_->get_disc().songs_) {
+                       auto* button = gtk_button_new_with_label(track.title_.c_str());
+                       gtk_widget_add_css_class(button, "menu-button");
+                       gtk_widget_add_css_class(gtk_button_get_child(GTK_BUTTON(button)), "overlay-list-text");
+                       gtk_list_box_append(bambox->tracks_overlay_list_, button);
+                       g_signal_connect(button, "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                                          bambox->next(bambox->active_lists_idx_ + 1);
+                                        }),
+                                        bambox);
+                     }
+
+                     bambox->ui_show_overlay(bambox->tracks_overlay_, InputState::LIST);
+                     bambox->ui_set_list(bambox->tracks_overlay_list_, bambox->cd_reader_->get_disc().songs_.size(),
+                                         bambox->tracks_overlay_win_, bambox->cd_reader_->get_track_number() -1);
+                   }),
+                   this);
+
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_EJECT)));
   g_signal_connect(menu_buttons_.back(), "clicked",
                    G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void { bambox->cd_reader_->eject(); }), this);
@@ -438,13 +451,17 @@ void BamBox::ui_activate() {
   output_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_OVERLAY_OUTPUT));
   output_overlay_list_ = GTK_LIST_BOX(gtk_builder_get_object(builder, GID_OVERLAY_OUTPUT_LIST));
 
+  tracks_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_OVERLAY_TRACKS));
+  tracks_overlay_list_ = GTK_LIST_BOX(gtk_builder_get_object(builder, GID_OVERLAY_TRACKS_LIST));
+  tracks_overlay_win_ = GTK_SCROLLED_WINDOW(gtk_builder_get_object(builder, GID_OVERLAY_TRACKS_WIN));
+
   gtk_window_present(window_);
   g_object_unref(builder);
 }
 
 void BamBox::ui_update_album_art() {
   auto cb = (GSourceOnceFunc)(+[](BamBox* bambox) {
-    std::string art = DEFAULT_IMAGE_PATH;
+    std::string art = DEFAULT_IMAGE_PATH;  // TODO change to resource
     if (bambox->state_ == BamBox::State::PLAYING) {
       auto cd = bambox->cd_reader_->get_disc();
       if (!cd.album_art_path_.empty()) {
@@ -542,10 +559,10 @@ void BamBox::ui_main_input(InputType type) {
     case InputType::PLAY: {
       bambox::Error res;
       if (!is_paused_) {
-        spdlog::info("pausing song");
+        spdlog::info("Pausing song");
         res = pause();
       } else {
-        spdlog::info("resuming song");
+        spdlog::info("Resuming song");
         res = resume();
       }
       if (res.is_error()) {
@@ -566,28 +583,42 @@ void BamBox::ui_list_input(InputType type) {
   switch (type) {
     case InputType::LEFT:
     case InputType::RIGHT: {
-      auto row = gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_);
+      auto row = gtk_list_box_get_row_at_index(active_list_, active_lists_idx_);
       gtk_widget_unset_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT);
-      size_t inc = ((type == InputType::LEFT) ? -1 : 1);
+      int inc = ((type == InputType::LEFT) ? -1 : 1);
 
-      // fix this is so bad
-      list_box_select_index_ =
-          std::max(0UL, std::min(audio_player_->get_device_names().size() - 1UL, list_box_select_index_ + inc));
-
-      row = gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_);
+      // add active_list_len with increment to force the number to always be positive.
+      active_lists_idx_ = (active_lists_idx_ + inc + active_list_len_) % active_list_len_;
+      row = gtk_list_box_get_row_at_index(active_list_, active_lists_idx_);
+      spdlog::info("Select song: {}", active_lists_idx_);
       gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
+
+      // Make sure the selected element is visible
+      if (active_lists_win_ != nullptr) {
+        GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(active_lists_win_);
+        double current = gtk_adjustment_get_value(vadj);
+        double page = gtk_adjustment_get_page_size(vadj);
+
+        graphene_rect_t rect;
+        gtk_widget_compute_bounds(GTK_WIDGET(row), GTK_WIDGET(active_list_), &rect);
+        if (rect.origin.y < current) {
+          gtk_adjustment_set_value(vadj, rect.origin.y);
+        } else if (current + page < rect.origin.y + rect.size.height) {
+          gtk_adjustment_set_value(vadj, rect.origin.y + rect.size.height - page);
+        }
+      }
       break;
     }
     case InputType::PRESS:
       // todo change to generic list element.
-      gtk_widget_activate(
-          gtk_list_box_row_get_child(gtk_list_box_get_row_at_index(output_overlay_list_, list_box_select_index_)));
-      gtk_widget_set_visible(output_overlay_, false);
-      input_state_ = InputState::MAIN;
+      gtk_widget_activate(gtk_list_box_row_get_child(gtk_list_box_get_row_at_index(active_list_, active_lists_idx_)));
+      ui_hide_overlay();
       break;
+    // Any button cancels input.
     case InputType::PLAY:
     case InputType::PREV:
     case InputType::NEXT:
+      ui_hide_overlay();
       break;
   }
 }
@@ -602,8 +633,7 @@ void BamBox::ui_volume_input(InputType type) {
       break;
     }
     case InputType::PRESS:
-      gtk_widget_set_visible(volume_overlay_, false);
-      input_state_ = InputState::MAIN;
+      ui_hide_overlay();
       break;
     // do nothing
     case InputType::PLAY:

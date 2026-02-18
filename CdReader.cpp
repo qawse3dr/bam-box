@@ -353,37 +353,31 @@ bambox::Error CdReader::update_disc_info() {
   std::string json_val = "";
   auto disc_id = get_disc_id();
   auto cached_path = "bambox-info/" + disc_id + ".json";
-  bool cached = false;
   if (std::filesystem::exists(cached_path)) {
     // Info already cached TODO(qawse3dr) we probably want a sqlite3 server for this instead of saving all
     // the json as it will take up a bunch of space we really don't need it to.
-
-    // really the parser could read this directly but as we will replace this for sql at some point
-    // just do the lazy solution.
     spdlog::info("info for discid={} already cached", disc_id);
-    cached = true;
-    std::ifstream fp(cached_path);
-    std::stringstream ss;
-    ss << fp.rdbuf();
-    json_val = ss.str();
   } else {  // fetch from the interwebs
     auto discid_url_write_ftn = +[](char *ptr, size_t size, size_t nmemb, void *userdata) -> size_t {
-      reinterpret_cast<std::string *>(userdata)->append(ptr, nmemb);
+      (reinterpret_cast<std::ofstream *>(userdata))->write(ptr, nmemb);
       return nmemb;
     };
+    
+    std::ofstream fp(cached_path);
     CURL *curl = curl_easy_init();
     std::string discid_url = "http://musicbrainz.org/ws/2/discid/" + get_disc_id() + "?inc=recordings+artists&fmt=json";
     curl_easy_setopt(curl, CURLOPT_URL, discid_url.c_str());
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "bambox/0.1 (lawrencemilne38@gmail.com)");
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &json_val);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &fp);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discid_url_write_ftn);
     CURLcode curl_res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
     spdlog::info("update_disc_info discid curl_res={}", curl_easy_strerror(curl_res));
   }
-
+  
   try {
-    auto discid_body = nlohmann::json::parse(json_val);
+    std::ifstream fp(cached_path);
+    auto discid_body = nlohmann::json::parse(fp);
     for (auto release : discid_body["releases"]) {
       if (release.contains("artist-credit") && release["artist-credit"].size() > 0) {
         current_cd_.artist_ = release["artist-credit"].front()["name"];
@@ -400,13 +394,9 @@ bambox::Error CdReader::update_disc_info() {
         break;
       }
     }
-
-    // Valid body lets dump it if we don't already have it.
-    if (!cached) {
-      std::ofstream fp(cached_path);
-      fp << discid_body;
-    }
   } catch (const std::exception &e) {
+    // remove the file on failure
+    unlink(cached_path.c_str());
     return {ECode::ERR_IO, "Failed to parse json with" + std::string(e.what())};
   }
 
@@ -414,20 +404,23 @@ bambox::Error CdReader::update_disc_info() {
   if (!current_cd_.release_id_.empty()) {
     current_cd_.album_art_path_ = "bambox-info/" + current_cd_.release_id_ + ".jpg";
     if (!std::filesystem::exists(current_cd_.album_art_path_)) {
+      CURLcode curl_res = CURLE_AGAIN;
       std::string album_art_url = "http://coverartarchive.org/release/" + current_cd_.release_id_ + "/front-250";
       spdlog::info("Fetching album art from {}", album_art_url);
-      FILE *fp = fopen(current_cd_.album_art_path_.c_str(), "wb");
-      CURL *curl = curl_easy_init();
-      curl_easy_setopt(curl, CURLOPT_URL, album_art_url.c_str());
-      curl_easy_setopt(curl, CURLOPT_FILE, fp);
-      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
-      curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-      CURLcode curl_res = curl_easy_perform(curl);
-      spdlog::info("update_disc_info art curl_res={}", curl_easy_strerror(curl_res));
-      curl_easy_cleanup(curl);
-      fclose(fp);
+      for(int i = 0; i < 3 && curl_res != CURLE_OK; i++) {
+        FILE *fp = fopen(current_cd_.album_art_path_.c_str(), "wb");
+        CURL *curl = curl_easy_init();
+        curl_easy_setopt(curl, CURLOPT_URL, album_art_url.c_str());
+        curl_easy_setopt(curl, CURLOPT_FILE, fp);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_res = curl_easy_perform(curl);
+        spdlog::info("update_disc_info art curl_res={}", curl_easy_strerror(curl_res));
+        curl_easy_cleanup(curl);
+        fclose(fp);
+      }
     }
   }
 

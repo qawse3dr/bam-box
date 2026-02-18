@@ -22,6 +22,7 @@
 #pragma once
 
 #include <string>
+#include <spdlog/fmt/fmt.h>
 
 namespace bambox {
 
@@ -47,7 +48,33 @@ struct Error {
   inline bool is_error() { return code != ECode::ERR_OK; }
   inline bool is_ok() { return code == ECode::ERR_OK; }
 
-  std::string str() { return msg; }
+  std::string str() { return fmt::format("{}: {}", ecode_as_str(code), msg); }
+  inline const char *ecode_as_str(ECode code) {
+    switch (code) {
+      case ECode::ERR_OK:
+        return "ERROR_OK";
+      case ECode::ERR_UNKNOWN:
+        return "ERROR_UNKNOWN";
+      case ECode::ERR_INVAL_STATE:
+        return "ERROR_INVALID_STATE";
+      case ECode::ERR_AGAIN:
+        return "ERROR_AGAIN";
+      case ECode::ERR_INVAL_ARG:
+        return "ERROR_INVALID_ARGUMENT";
+      case ECode::ERR_TIMEOUT:
+        return "ERROR_TIMEOUT";
+      case ECode::ERR_NOFILE:
+        return "ERROR_NO_FILE";
+      case ECode::ERR_IO:
+        return "ERROR_IO";
+      case ECode::ERR_RANGE:
+        return "ERROR_RANGE";
+      case ECode::ERR_OOM:
+        return "ERROR_OOM";
+      default:
+        return "ERROR_UNKNOWN";
+    }
+  }
 };
 
 template <typename T>

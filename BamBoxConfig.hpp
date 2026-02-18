@@ -41,6 +41,7 @@ struct AudioDevCfg {
 
 struct BamBoxConfig {
   std::string cd_mount_point = "/dev/umasscd0";
+  std::string cd_cache = "bambox-info";
   std::vector<AudioDevCfg> audio_devs = {{.display_name = "Speakers", .device_name = "pcmC1D0p", .mixer_name = "controlC1", .volume = 50},
                                          {.display_name = "Headphones", .device_name = "pcmC0D0p", .mixer_name = "controlC0", .volume = 50}};
   std::string default_audio_dev = "Speakers";

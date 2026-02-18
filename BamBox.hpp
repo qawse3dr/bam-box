@@ -21,6 +21,8 @@
  */
 #pragma once
 
+#include <gtk/gtk.h>
+
 #include <memory>
 #include <thread>
 
@@ -31,15 +33,12 @@
 #include "LcdDisplay.hpp"
 #include "platform/Gpio.hpp"
 
-#include <gtk/gtk.h>
-
-
 namespace bambox {
 class BamBox {
  private:
   enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
   enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
-  enum class InputState { MAIN, VOLUME, LIST};
+  enum class InputState { MAIN, VOLUME, LIST };
 
  public:
   BamBox();
@@ -47,7 +46,6 @@ class BamBox {
   BamBox(BamBox&&) = delete;
   BamBox(const BamBox&) = delete;
 
-  
   // Doesn't return
   Error go();
   Error config(BamBoxConfig&& cfg);
@@ -57,7 +55,13 @@ class BamBox {
   Error pause();
   Error resume();  // todo rename to play()?
   Error prev();
-  Error next();
+
+  /**
+   * @brief Plays next track, or given track
+   *
+   * @param track Track to play, if negative one will default to next track
+   */
+  Error next(int track = -1);
 
  private:
   void cd_player_loop();
@@ -67,6 +71,43 @@ class BamBox {
   void ui_update_track_info();
   void ui_update_album_art();
   void ui_update_track_time(const std::chrono::seconds sec);
+
+  void ui_hide_overlay() {
+    if (!active_overlay_) {
+      return;
+    }
+
+    gtk_widget_set_visible(active_overlay_, false);
+    active_overlay_ = nullptr;
+    input_state_ = InputState::MAIN;
+  }
+
+  void ui_show_overlay(GtkWidget* overlay, InputState state) {
+    if (overlay == nullptr) {
+      return;
+    }
+    active_overlay_ = overlay;
+    gtk_widget_set_visible(active_overlay_, true);
+    gtk_widget_set_opacity(active_overlay_, 1.0);
+    input_state_ = state;
+  }
+
+  void ui_set_list(GtkListBox* list, size_t length, GtkScrolledWindow* window, size_t selected = 0) {
+    assert(list == nullptr && "list null");
+
+    active_lists_idx_ = selected;
+    active_list_ = list;
+    active_lists_win_ = window;
+    active_list_len_ = length;
+
+    // Select the correct idx.
+    auto row = gtk_list_box_get_row_at_index(active_list_, active_lists_idx_);
+    gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
+
+    if (window != nullptr) {
+      gtk_scrolled_window_set_policy(window, GTK_POLICY_NEVER, GTK_POLICY_EXTERNAL);
+    }
+  }
 
   void ui_handle_input(InputType type);
   void ui_main_input(InputType type);
@@ -97,7 +138,7 @@ class BamBox {
   // Main screen song info.
 
   // [track, album, artist]
-  std::array<GtkLabel*, 3> song_info_text_; 
+  std::array<GtkLabel*, 3> song_info_text_;
   GtkProgressBar* song_progress_{};
   GtkImage* album_art_{};
 
@@ -105,14 +146,19 @@ class BamBox {
 
   size_t selected_button_idx_ = 0;
   std::vector<GtkButton*> menu_buttons_{};
-  std::vector<GtkButton*>* active_lists_{};
+
+  // List menu
+  GtkListBox* active_list_{};
+  GtkScrolledWindow* active_lists_win_{};
+  GtkWidget* active_overlay_{};
+  int active_lists_idx_ = 0;
+  size_t active_list_len_ = 0;
 
   // Stack and children screens
   GtkStack* screen_stack_{};
   GtkWidget* screen_stack_splash_{};
   GtkWidget* screen_stack_main_{};
 
-  // Splash screen
   // Volume Overlay
   GtkWidget* volume_overlay_{};
   GtkProgressBar* volume_overlay_level_{};
@@ -120,7 +166,11 @@ class BamBox {
   // Audio Select Overlay
   GtkWidget* output_overlay_{};
   GtkListBox* output_overlay_list_{};
-  int list_box_select_index_ = 0;
+
+  // Tracks Select Overlay
+  GtkWidget* tracks_overlay_{};
+  GtkListBox* tracks_overlay_list_{};
+  GtkScrolledWindow* tracks_overlay_win_{};
 
   std::chrono::seconds current_time_{};
 };

@@ -45,6 +45,29 @@ void help_menu(std::ostream& out) {
       << "                                 if provided." << std::endl;
 }
 
+
+static bambox::Error parse_config(bambox::BamBoxConfig& config, const char* config_path) {
+  auto config_json = nlohmann::json::parse(config_path, nullptr, false, true);
+  if (config_json.is_discarded()) {
+    return {ECode::ERR_IO, "Failed to parse config file with"};
+  }
+
+  try {
+    auto cd_path = config_json.find("cd_mount");
+    if (cd_path != config_json.end()) {
+      config.cd_mount_point = *cd_path;
+    }
+
+    auto cd_cache = config_json.find("cd_cache");
+    if (cd_cache != config_json.end()) {
+      config.cd_cache = *cd_cache;
+    }
+
+  } catch(const std::exception& e) {
+    return {ECode::ERR_INVAL_ARG, fmt::format("Failed to json value with: {}", e.what())};
+  }
+} 
+
 bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]) {
   bambox::BamBoxConfig cfg;
   int quiet_flag;
