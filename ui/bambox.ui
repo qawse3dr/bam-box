@@ -317,7 +317,7 @@
                       <object class="GtkLabel">
                         <property name="css-classes">setting-menu-label</property>
                         <property name="justify">center</property>
-                        <property name="label">Settings</property>
+                        <property name="label">Startup Settings</property>
                       </object>
                     </child>
                     <child>
@@ -328,7 +328,7 @@
                     <child>
                       <object class="GtkBox">
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="output-settings-button">
                             <property name="child">
                               <object class="GtkImage">
                                 <property name="icon-name">audio-headphones</property>
@@ -361,7 +361,7 @@
                     <child>
                       <object class="GtkBox">
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="volume-settings-button">
                             <property name="child">
                               <object class="GtkImage">
                                 <property name="icon-name">audio-volume-high</property>
@@ -399,7 +399,7 @@
                       <object class="GtkBox">
                         <property name="hexpand">True</property>
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="dump-settings-button">
                             <property name="child">
                               <object class="GtkImage">
                                 <property name="icon-name">backup</property>
@@ -437,7 +437,7 @@
                       <object class="GtkBox">
                         <property name="hexpand">True</property>
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="cd-info-setting-button">
                             <property name="child">
                               <object class="GtkImage">
                                 <property name="icon-name">info</property>
@@ -461,7 +461,7 @@
                       <object class="GtkBox">
                         <property name="hexpand">True</property>
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="about-setting-button">
                             <property name="child">
                               <object class="GtkImage">
                                 <property name="halign">start</property>
@@ -477,13 +477,138 @@
                         <child>
                           <object class="GtkLabel">
                             <property name="css-classes">settings-text</property>
-                            <property name="label">Credits</property>
+                            <property name="label">About</property>
                           </object>
                         </child>
                       </object>
                     </child>
                   </object>
                 </property>
+                <child type="overlay">
+                  <object class="GtkBox" id="setting-about-overlay">
+                    <property name="css-classes">overlay</property>
+                    <property name="opacity">0.0</property>
+                    <property name="orientation">vertical</property>
+                    <property name="overflow">hidden</property>
+                    <property name="spacing">10</property>
+                    <property name="visible">False</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="css-classes">overlay-label</property>
+                        <property name="label">About BamBox</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparator">
+                        <property name="height-request">5</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="halign">start</property>
+                        <property name="label">Creator: Larry Milne (a.k.a qawse3dr)</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="halign">start</property>
+                        <property name="label">Hardware: RPI4</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="halign">start</property>
+                        <property name="label">UI: GTK4</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="halign">start</property>
+                        <property name="label">OS: QNX Everywhere 8.0 CTI </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparator">
+                        <property name="height-request">5</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Press Any Button To Exit</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="overlay">
+                  <object class="GtkBox" id="setting-dump-overlay">
+                    <property name="css-classes">overlay</property>
+                    <property name="opacity">0.0</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">15</property>
+                    <property name="visible">False</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="css-classes">overlay-label</property>
+                        <property name="label">Backup CD To Cloud</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparator">
+                        <property name="height-request">5</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox">
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Album Title: </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="settings-dump-overlay-title">
+                            <property name="halign">end</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox">
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label">Tracks: </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="settings-dump-overlay-tracks">
+                            <property name="halign">end</property>
+                            <property name="hexpand">True</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkBox">
+                        <child>
+                          <object class="GtkButton">
+                            <property name="css-classes">menu-button</property>
+                            <property name="halign">center</property>
+                            <property name="hexpand">True</property>
+                            <property name="label">Cancel</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton">
+                            <property name="css-classes">menu-button</property>
+                            <property name="halign">center</property>
+                            <property name="hexpand">True</property>
+                            <property name="label">Dump</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </property>
             <property name="name">setting-screen</property>

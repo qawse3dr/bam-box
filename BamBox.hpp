@@ -22,8 +22,10 @@
 #pragma once
 
 #include <gtk/gtk.h>
+#include <spdlog/spdlog.h>
 
 #include <memory>
+#include <stack>
 #include <thread>
 
 #include "AudioPlayer.hpp"
@@ -38,7 +40,10 @@ class BamBox {
  private:
   enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
   enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
-  enum class InputState { MAIN, VOLUME, LIST, SETTINGS };
+  enum class InputState { MAIN, VOLUME, LIST, SETTINGS, INFO };
+
+  using UIStackPopFunc = std::function<void(void)>;
+  using UIStackElement = std::pair<InputState, UIStackPopFunc>;
 
  public:
   BamBox();
@@ -79,7 +84,25 @@ class BamBox {
 
     gtk_widget_set_visible(active_overlay_, false);
     active_overlay_ = nullptr;
-    input_state_ = InputState::MAIN;
+  }
+
+  void ui_push_stack(InputState new_state, const UIStackPopFunc& pop_func) {
+    spdlog::info("Changing to screen {}", static_cast<int>(new_state));
+    ui_stack_.emplace(input_state_, pop_func);
+    input_state_ = new_state;
+  }
+
+  void ui_pop_stack() {
+    if (ui_stack_.empty()) {
+      spdlog::warn("Tried to pop state but no elements are on the stack");
+      return;
+    }
+
+    auto element = ui_stack_.top();
+    spdlog::info("Pop screen from {} to {}", static_cast<int>(input_state_), static_cast<int>(element.first));
+    ui_stack_.pop();
+    element.second();
+    input_state_ = element.first;
   }
 
   void ui_show_overlay(GtkWidget* overlay, InputState state) {
@@ -89,7 +112,15 @@ class BamBox {
     active_overlay_ = overlay;
     gtk_widget_set_visible(active_overlay_, true);
     gtk_widget_set_opacity(active_overlay_, 1.0);
-    input_state_ = state;
+    ui_push_stack(state, std::bind(&BamBox::ui_hide_overlay, this));
+  }
+
+  void ui_set_button_active(GtkButton* button, bool active) {
+    if (active) {
+      gtk_widget_set_state_flags(GTK_WIDGET(button), GTK_STATE_FLAG_PRELIGHT, false);
+    } else {
+      gtk_widget_unset_state_flags(GTK_WIDGET(button), GTK_STATE_FLAG_PRELIGHT);
+    }
   }
 
   void ui_set_list(GtkListBox* list, size_t length, GtkScrolledWindow* window, size_t selected = 0) {
@@ -114,7 +145,9 @@ class BamBox {
   void ui_volume_input(InputType type);
   void ui_list_input(InputType type);
   void ui_setting_input(InputType type);
+  void ui_info_input(InputType type);
 
+  
 
  private:
   BamBoxConfig cfg_;
@@ -124,6 +157,8 @@ class BamBox {
   std::unique_ptr<AudioPlayer> audio_player_{};
   std::shared_ptr<platform::Gpio> gpio_{};
   std::unique_ptr<LcdDisplay> lcd_display_{};
+
+  std::stack<UIStackElement> ui_stack_{};
 
   // Running state
   std::thread cd_thread_{};
@@ -138,7 +173,6 @@ class BamBox {
   InputState input_state_ = InputState::MAIN;
 
   // Main screen song info.
-
   // [track, album, artist]
   std::array<GtkLabel*, 3> song_info_text_;
   GtkProgressBar* song_progress_{};
@@ -146,8 +180,11 @@ class BamBox {
 
   GtkWindow* window_{};
 
-  size_t selected_button_idx_ = 0;
+  size_t menu_button_idx_ = 0;
   std::vector<GtkButton*> menu_buttons_{};
+
+  size_t setting_button_idx_ = 0;
+  std::vector<GtkButton*> setting_buttons_{};
 
   // List menu
   GtkListBox* active_list_{};
@@ -172,6 +209,9 @@ class BamBox {
   GtkListBox* tracks_overlay_list_{};
   GtkScrolledWindow* tracks_overlay_win_{};
 
+  // Setting Overlays
+  GtkWidget* settings_about_overlay_{};
+  GtkWidget* settings_dump_overlay_{};
 
 
   std::chrono::seconds current_time_{};

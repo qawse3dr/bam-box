@@ -3,32 +3,26 @@ window {
   background-color: #222226;
 }
 
-.song-info-text {
-  font-size: 36px;
-  color: white;
+label {
+   color: white;
+   font-size:28px;
 }
 
-.settings-text {
- color: white;
- font-size:32px;
+.song-info-text {
+  font-size: 36px;
 }
+
 
 .setting-menu-label {
   font-size: 32px;
 }
 
 .overlay-label {
-  font-size: 48px;
-  color: white;
+  font-size: 36px;
 }
 
 .overlay-list {
  font-size: 36px;
-}
-
-.overlay-list-text {
- font-size: 28px;
- color: white;
 }
 
 .menu-button {
@@ -54,8 +48,9 @@ window {
   margin-top: 110px;
   background-color: gray;
   padding: 10px;
+  border: 3px;
+  border-color: black;
 }
-
 
 // List Item
 .list-item {
