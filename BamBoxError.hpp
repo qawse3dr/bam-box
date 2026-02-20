@@ -21,8 +21,9 @@
  */
 #pragma once
 
-#include <string>
 #include <spdlog/fmt/fmt.h>
+
+#include <string>
 
 namespace bambox {
 
@@ -83,7 +84,7 @@ struct Expected : public Error {
   Expected(const T &exp_val) : val(exp_val) {}
   Expected(T &&exp_val) : val(std::move(exp_val)) {}
   Expected(ECode err_code, const std::string &err_msg) : Error(err_code, err_msg) {}
-
+  Expected(Error e) : Error(e) {}
   T val{};
 };
 }  // namespace bambox

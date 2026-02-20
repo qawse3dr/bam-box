@@ -22,12 +22,12 @@
 #include "BamBoxConfig.hpp"
 
 #include <getopt.h>
-
-#include <iostream>
-#include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 
+#include <fstream>
+#include <iostream>
+#include <nlohmann/json.hpp>
 
 using bambox::ECode;
 using nlohmann::json;
@@ -45,28 +45,35 @@ void help_menu(std::ostream& out) {
       << "                                 if provided." << std::endl;
 }
 
-
 static bambox::Error parse_config(bambox::BamBoxConfig& config, const char* config_path) {
-  auto config_json = nlohmann::json::parse(config_path, nullptr, false, true);
-  if (config_json.is_discarded()) {
-    return {ECode::ERR_IO, "Failed to parse config file with"};
-  }
-
   try {
-    auto cd_path = config_json.find("cd_mount");
-    if (cd_path != config_json.end()) {
-      config.cd_mount_point = *cd_path;
+    auto config_json = nlohmann::json::parse(std::ifstream(config_path), nullptr, true, true);
+    config.cd_mount_point = config_json.at("cd_mount");
+    config.cd_cache = config_json.at("cd_cache");
+    config.default_audio_dev = config_json.at("audio_dev_default");
+    const auto& gpio = config_json.at("gpio");
+    config.prev_gpio = gpio.at("prev");
+    config.next_gpio = gpio.at("next");
+    config.play_gpio = gpio.at("play");
+    const auto& encoder = gpio.at("encoder");
+    config.rotary_encoder.button_gpio = encoder.at("push");
+    config.rotary_encoder.clk_gpio = encoder.at("clk");
+    config.rotary_encoder.data_gpio = encoder.at("data");
+
+    for (const auto& dev_json : config_json.at("audio_devs").items()) {
+      config.audio_devs.push_back((bambox::AudioDevCfg){
+          .display_name = dev_json.key(),
+          .device_name = dev_json.value().at("dev"),
+          .mixer_name = dev_json.value().at("mixer"),
+          .volume = dev_json.value().at("volume"),
+      });
     }
 
-    auto cd_cache = config_json.find("cd_cache");
-    if (cd_cache != config_json.end()) {
-      config.cd_cache = *cd_cache;
-    }
-
-  } catch(const std::exception& e) {
+  } catch (const std::exception& e) {
     return {ECode::ERR_INVAL_ARG, fmt::format("Failed to json value with: {}", e.what())};
   }
-} 
+  return {};
+}
 
 bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]) {
   bambox::BamBoxConfig cfg;
@@ -122,8 +129,43 @@ bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]) {
     }
   }
 
-  // parse config
+  if (config_path == nullptr) {
+    return {ECode::ERR_NOFILE, "Missing config file"};
+  }
 
+  auto res = parse_config(cfg, config_path);
+  if (res.is_error()) return res;
+  cfg.config_path = config_path;
 
   return {cfg};
+}
+
+bambox::Error dump_config(const bambox::BamBoxConfig& cfg) {
+  std::ofstream fp(cfg.config_path);
+  if (!fp.is_open()) {
+    return {ECode::ERR_IO, fmt::format("Failed to open path {} for dumping config", cfg.config_path)};
+  }
+  nlohmann::json cfg_json = nlohmann::json::object();
+  cfg_json["cd_mount"] = cfg.cd_mount_point;
+  cfg_json["cd_cache"] = cfg.cd_cache;
+  cfg_json["audio_dev_default"] = cfg.default_audio_dev;
+  cfg_json["gpio"] = nlohmann::json::object();
+  cfg_json["gpio"]["prev"] = cfg.prev_gpio;
+  cfg_json["gpio"]["play"] = cfg.play_gpio;
+  cfg_json["gpio"]["next"] = cfg.next_gpio;
+  cfg_json["gpio"]["encoder"]["clk"] = cfg.rotary_encoder.clk_gpio;
+  cfg_json["gpio"]["encoder"]["data"] = cfg.rotary_encoder.data_gpio;
+  cfg_json["gpio"]["encoder"]["push"] = cfg.rotary_encoder.button_gpio;
+
+  cfg_json["audio_devs"] = nlohmann::json::object();
+  for (const auto& dev : cfg.audio_devs) {
+    auto dev_json = nlohmann::json::object();
+    dev_json["dev"] = dev.display_name;
+    dev_json["mixer"] = dev.mixer_name;
+    dev_json["volume"] = dev.volume;
+    cfg_json["audio_devs"][dev.display_name] = dev_json;
+  }
+
+  fp << cfg_json;
+  return {};
 }

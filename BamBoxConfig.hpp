@@ -40,20 +40,20 @@ struct AudioDevCfg {
 };
 
 struct BamBoxConfig {
-  std::string cd_mount_point = "/dev/umasscd0";
-  std::string cd_cache = "bambox-info";
-  std::vector<AudioDevCfg> audio_devs = {{.display_name = "Speakers", .device_name = "pcmC1D0p", .mixer_name = "controlC1", .volume = 50},
-                                         {.display_name = "Headphones", .device_name = "pcmC0D0p", .mixer_name = "controlC0", .volume = 50}};
-  std::string default_audio_dev = "Speakers";
+  std::string config_path;
+  std::string cd_mount_point;
+  std::string cd_cache;
+  std::vector<AudioDevCfg> audio_devs{};
+  std::string default_audio_dev{};
 
-  uint8_t prev_gpio = 16;
-  uint8_t play_gpio = 24;
-  uint8_t next_gpio = 23;
+  uint8_t prev_gpio;
+  uint8_t play_gpio;
+  uint8_t next_gpio;
 
   struct {
-    uint8_t clk_gpio = 4;
-    uint8_t data_gpio = 3;
-    uint8_t button_gpio = 2;
+    uint8_t clk_gpio;
+    uint8_t data_gpio;
+    uint8_t button_gpio;
 
   } rotary_encoder;
 
@@ -64,3 +64,4 @@ struct BamBoxConfig {
 }  // namespace bambox
 
 bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]);
+bambox::Error dump_config(const bambox::BamBoxConfig& cfg);
