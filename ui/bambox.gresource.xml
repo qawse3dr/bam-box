@@ -5,6 +5,8 @@
     <file>bambox.css</file>
     <file>bambox.ui</file>
     <file>res/logo.jpg</file>
+    <file>bambox_light.css</file>
+    <file>bambox_dark.css</file>
   </gresource>
   <gresource prefix="/ca/larrycloud/bambox/icons/48x48/actions/">
     <file alias="audio-headphones.png">res/audio-headphones.png</file>
@@ -12,6 +14,7 @@
     <file alias="media-eject.png">res/media-eject.png</file>
     <file alias="media-playlist-play.png">res/media-playlist-play.png</file>
     <file alias="settings.png">res/settings.png</file>
+    <file alias="colour.png">res/colour.png</file>
     <file alias="backup.png">res/backup.png</file>
     <file alias="info.png">res/info.png</file>
     <file alias="credit.png">res/credit.png</file>

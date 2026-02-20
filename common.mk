@@ -38,5 +38,5 @@ EXTRA_OBJS = icons.o
 
 include $(MKFILES_ROOT)/qtargets.mk
 
-$(PROJECT_ROOT)/gen/icons.c: $(PROJECT_ROOT)/ui/bambox.gresource.xml $(PROJECT_ROOT)/ui/bambox.css $(PROJECT_ROOT)/ui/bambox.ui
+$(PROJECT_ROOT)/gen/icons.c: $(PROJECT_ROOT)/ui/bambox.gresource.xml $(PROJECT_ROOT)/ui/bambox.css $(PROJECT_ROOT)/ui/bambox_light.css $(PROJECT_ROOT)/ui/bambox_dark.css $(PROJECT_ROOT)/ui/bambox.ui
 	glib-compile-resources $< --sourcedir=$(PROJECT_ROOT)/ui --generate --target $@

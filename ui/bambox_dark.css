@@ -19,67 +19,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
  * SOFTWARE.
  */
+window {
+  background-color: #222226;
+}
+
 label {
-  font-size: 28px;
-}
-
-.song-info-text {
-  font-size: 36px;
-}
-
-.setting-menu-label {
-  font-size: 48px;
-}
-
-.overlay-label {
-  font-size: 36px;
-}
-
-.overlay-list {
-  font-size: 36px;
-}
-
-.menu-button {
-  border-width: 0px;
-  background-image: none;
-  box-shadow: none;
-  border-radius: 0px;
-}
-
-.menu-button:hover {
-  border-style: solid;
-  background-image: none;
-  /* REMOVE default background */
-  box-shadow: none;
-  /* REMOVE theme shadows */
-}
-
-.overlay {
-  margin-left: 50px;
-  margin-right: 50px;
-  margin-bottom: 110px;
-  margin-top: 110px;
-  padding: 10px;
-  border: 3px;
-  border-style: solid;
-}
-
-.list-item {
-  margin-left: 60px;
-  margin-right: 60px;
-}
-
-progressbar {
-  margin-left: 10px;
-  margin-right: 10px;
-  margin-bottom: 20px;
+  color: white;
 }
 
 progressbar text {
-  font-size: 28px;
+  color: white;
 }
 
-progress,
-trough {
-  min-height: 13px;
+.menu-button {
+  background-color: gray;
+}
+
+.menu-button:hover {
+  border-color: blue;
+  background-color: #38383b;
+}
+
+.overlay {
+  background-color: gray;
+  border-color: black;
 }

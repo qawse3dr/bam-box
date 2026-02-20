@@ -57,6 +57,7 @@ const char* GID_MENU_BUTTONS_SETTINGS = "settings-menu-button";
 // Settings Buttons
 const char* GID_SETTING_BUTTONS_VOLUME = "volume-settings-button";
 const char* GID_SETTING_BUTTONS_OUTPUT = "output-settings-button";
+const char* GID_SETTING_BUTTONS_THEME = "theme-settings-button";
 const char* GID_SETTING_BUTTONS_DUMP = "dump-settings-button";
 const char* GID_SETTING_BUTTONS_CD_INFO = "cd-info-setting-button";
 const char* GID_SETTING_BUTTONS_ABOUT = "about-setting-button";
@@ -383,13 +384,20 @@ void BamBox::ui_activate() {
   gtk_window_set_title(window_, "Bam-Box");
   gtk_window_fullscreen(window_);
 
+  // CSS Theming
+  GtkCssProvider* colour_provider = gtk_css_provider_new();
   GtkCssProvider* provider = gtk_css_provider_new();
   GdkDisplay* display = gdk_display_get_default();
+  const auto& css_path = (cfg_.dark_mode) ? cfg_.gtk_style_dark_path_ : cfg_.gtk_style_light_path_;
+  gtk_css_provider_load_from_resource(colour_provider, css_path.c_str());
   gtk_css_provider_load_from_resource(provider, cfg_.gtk_style_path_.c_str());
   gtk_style_context_add_provider_for_display(display, GTK_STYLE_PROVIDER(provider),
                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-  GtkIconTheme* icon_theme = gtk_icon_theme_get_for_display(display);
+  gtk_style_context_add_provider_for_display(display, GTK_STYLE_PROVIDER(colour_provider),
+                                             GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
+  // Icons Theming
+  GtkIconTheme* icon_theme = gtk_icon_theme_get_for_display(display);
   const char* resource_path[] = {"/ca/larrycloud/bambox/icons", NULL};
   gtk_icon_theme_set_resource_path(icon_theme, resource_path);
 
@@ -427,6 +435,9 @@ void BamBox::ui_activate() {
 
   menu_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_MENU_BUTTONS_TRACKS)));
   g_signal_connect(menu_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                     if (bambox->cd_reader_->get_disc().songs_.size() == 0) {
+                       return;  // no songs
+                     }
                      gtk_list_box_remove_all(bambox->tracks_overlay_list_);
                      for (const auto& track : bambox->cd_reader_->get_disc().songs_) {
                        auto* button = gtk_button_new_with_label(track.title_.c_str());
@@ -490,6 +501,14 @@ void BamBox::ui_activate() {
   // Settings Buttons
   setting_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_SETTING_BUTTONS_OUTPUT)));
   setting_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_SETTING_BUTTONS_VOLUME)));
+  setting_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_SETTING_BUTTONS_THEME)));
+  g_signal_connect(setting_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
+                     bambox->cfg_.dark_mode = !bambox->cfg_.dark_mode;
+                     dump_config(bambox->cfg_);
+                     // TODO toggle switch
+                   }),
+                   this);
+
   setting_buttons_.push_back(GTK_BUTTON(gtk_builder_get_object(builder, GID_SETTING_BUTTONS_DUMP)));
   g_signal_connect(setting_buttons_.back(), "clicked", G_CALLBACK(+[](GtkButton* button, BamBox* bambox) -> void {
                      bambox->ui_show_overlay(bambox->settings_dump_overlay_, InputState::INFO);

@@ -306,184 +306,231 @@
             <property name="child">
               <object class="GtkOverlay">
                 <property name="child">
-                  <object class="GtkBox">
-                    <property name="hexpand">True</property>
-                    <property name="margin-end">20</property>
-                    <property name="margin-start">20</property>
-                    <property name="margin-top">5</property>
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">10</property>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="css-classes">setting-menu-label</property>
-                        <property name="justify">center</property>
-                        <property name="label">Startup Settings</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparator">
-                        <property name="height-request">4</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox">
-                        <child>
-                          <object class="GtkButton" id="output-settings-button">
-                            <property name="child">
-                              <object class="GtkImage">
-                                <property name="icon-name">audio-headphones</property>
-                                <property name="pixel-size">54</property>
-                              </object>
-                            </property>
-                            <property name="css-classes">menu-button</property>
-                            <property name="halign">start</property>
-                            <property name="margin-end">20</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="halign">start</property>
-                            <property name="label">Audio Device</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="halign">end</property>
-                            <property name="hexpand">True</property>
-                            <property name="justify">right</property>
-                            <property name="label">(Speaker)</property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox">
-                        <child>
-                          <object class="GtkButton" id="volume-settings-button">
-                            <property name="child">
-                              <object class="GtkImage">
-                                <property name="icon-name">audio-volume-high</property>
-                                <property name="pixel-size">54</property>
-                              </object>
-                            </property>
-                            <property name="css-classes">menu-button</property>
-                            <property name="halign">start</property>
-                            <property name="margin-end">20</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="label">Volume</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="halign">end</property>
-                            <property name="hexpand">True</property>
-                            <property name="justify">fill</property>
-                            <property name="label">(50%)</property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparator">
-                        <property name="height-request">4</property>
-                      </object>
-                    </child>
-                    <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="child">
                       <object class="GtkBox">
                         <property name="hexpand">True</property>
-                        <child>
-                          <object class="GtkButton" id="dump-settings-button">
-                            <property name="child">
-                              <object class="GtkImage">
-                                <property name="icon-name">backup</property>
-                                <property name="icon-size">normal</property>
-                                <property name="pixel-size">54</property>
-                                <property name="width-request">32</property>
-                              </object>
-                            </property>
-                            <property name="css-classes">menu-button</property>
-                            <property name="halign">end</property>
-                            <property name="margin-end">20</property>
-                          </object>
-                        </child>
+                        <property name="margin-bottom">30</property>
+                        <property name="margin-end">20</property>
+                        <property name="margin-start">20</property>
+                        <property name="margin-top">5</property>
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">10</property>
                         <child>
                           <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="halign">start</property>
-                            <property name="hexpand">True</property>
-                            <property name="justify">right</property>
-                            <property name="label">Backup CD</property>
+                            <property name="css-classes">setting-menu-label</property>
+                            <property name="justify">center</property>
+                            <property name="label">Startup Settings</property>
                           </object>
                         </child>
                         <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="halign">end</property>
-                            <property name="hexpand">True</property>
-                            <property name="justify">right</property>
-                            <property name="label">Sync Available</property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox">
-                        <property name="hexpand">True</property>
-                        <child>
-                          <object class="GtkButton" id="cd-info-setting-button">
-                            <property name="child">
-                              <object class="GtkImage">
-                                <property name="icon-name">info</property>
-                                <property name="pixel-size">54</property>
-                              </object>
-                            </property>
-                            <property name="css-classes">menu-button</property>
-                            <property name="halign">end</property>
-                            <property name="margin-end">20</property>
+                          <object class="GtkSeparator">
+                            <property name="height-request">2</property>
                           </object>
                         </child>
                         <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="label">About CD</property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkBox">
-                        <property name="hexpand">True</property>
-                        <child>
-                          <object class="GtkButton" id="about-setting-button">
-                            <property name="child">
-                              <object class="GtkImage">
+                          <object class="GtkBox">
+                            <child>
+                              <object class="GtkButton" id="output-settings-button">
+                                <property name="child">
+                                  <object class="GtkImage">
+                                    <property name="icon-name">audio-headphones</property>
+                                    <property name="pixel-size">48</property>
+                                  </object>
+                                </property>
+                                <property name="css-classes">menu-button</property>
                                 <property name="halign">start</property>
-                                <property name="icon-name">credit</property>
-                                <property name="pixel-size">54</property>
+                                <property name="margin-end">20</property>
                               </object>
-                            </property>
-                            <property name="css-classes">menu-button</property>
-                            <property name="halign">start</property>
-                            <property name="margin-end">20</property>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="halign">start</property>
+                                <property name="label">Audio Device</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="halign">end</property>
+                                <property name="hexpand">True</property>
+                                <property name="justify">right</property>
+                                <property name="label">(Speaker)</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                         <child>
-                          <object class="GtkLabel">
-                            <property name="css-classes">settings-text</property>
-                            <property name="label">About</property>
+                          <object class="GtkBox">
+                            <child>
+                              <object class="GtkButton" id="volume-settings-button">
+                                <property name="child">
+                                  <object class="GtkImage">
+                                    <property name="icon-name">audio-volume-high</property>
+                                    <property name="pixel-size">48</property>
+                                  </object>
+                                </property>
+                                <property name="css-classes">menu-button</property>
+                                <property name="halign">start</property>
+                                <property name="margin-end">20</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="label">Volume</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="halign">end</property>
+                                <property name="hexpand">True</property>
+                                <property name="justify">fill</property>
+                                <property name="label">(50%)</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <child>
+                              <object class="GtkButton" id="theme-settings-button">
+                                <property name="child">
+                                  <object class="GtkImage">
+                                    <property name="icon-name">colour</property>
+                                    <property name="pixel-size">48</property>
+                                  </object>
+                                </property>
+                                <property name="css-classes">menu-button</property>
+                                <property name="halign">start</property>
+                                <property name="margin-end">20</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="label">Dark Theme</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkSwitch" id="dark-mode-switch">
+                                <property name="halign">end</property>
+                                <property name="height-request">32</property>
+                                <property name="hexpand">True</property>
+                                <property name="valign">baseline-center</property>
+                                <property name="vexpand">True</property>
+                                <property name="width-request">52</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSeparator">
+                            <property name="height-request">2</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="hexpand">True</property>
+                            <child>
+                              <object class="GtkButton" id="dump-settings-button">
+                                <property name="child">
+                                  <object class="GtkImage">
+                                    <property name="icon-name">backup</property>
+                                    <property name="icon-size">normal</property>
+                                    <property name="pixel-size">48</property>
+                                    <property name="width-request">32</property>
+                                  </object>
+                                </property>
+                                <property name="css-classes">menu-button</property>
+                                <property name="halign">end</property>
+                                <property name="margin-end">20</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="halign">start</property>
+                                <property name="hexpand">True</property>
+                                <property name="justify">right</property>
+                                <property name="label">Backup CD</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="halign">end</property>
+                                <property name="hexpand">True</property>
+                                <property name="justify">right</property>
+                                <property name="label">Sync Available</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="hexpand">True</property>
+                            <child>
+                              <object class="GtkButton" id="cd-info-setting-button">
+                                <property name="child">
+                                  <object class="GtkImage">
+                                    <property name="icon-name">info</property>
+                                    <property name="pixel-size">48</property>
+                                  </object>
+                                </property>
+                                <property name="css-classes">menu-button</property>
+                                <property name="halign">end</property>
+                                <property name="margin-end">20</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="label">About CD</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="hexpand">True</property>
+                            <child>
+                              <object class="GtkButton" id="about-setting-button">
+                                <property name="child">
+                                  <object class="GtkImage">
+                                    <property name="halign">start</property>
+                                    <property name="icon-name">credit</property>
+                                    <property name="pixel-size">48</property>
+                                  </object>
+                                </property>
+                                <property name="css-classes">menu-button</property>
+                                <property name="halign">start</property>
+                                <property name="margin-end">20</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="css-classes">settings-text</property>
+                                <property name="label">About</property>
+                              </object>
+                            </child>
                           </object>
                         </child>
                       </object>
-                    </child>
+                    </property>
+                    <property name="hexpand">True</property>
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="kinetic-scrolling">False</property>
+                    <property name="max-content-height">480</property>
+                    <property name="min-content-height">480</property>
+                    <property name="propagate-natural-height">True</property>
+                    <property name="propagate-natural-width">True</property>
+                    <property name="valign">start</property>
                   </object>
                 </property>
+                <property name="valign">start</property>
                 <child type="overlay">
                   <object class="GtkBox" id="setting-about-overlay">
                     <property name="css-classes">overlay</property>

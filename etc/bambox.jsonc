@@ -22,6 +22,7 @@
 {
   "cd_mount": "/dev/umasscd0", // Path for cd device
   "cd_cache": "bambox-info", // Where cd info will get cached on fs
+  "dark_mode": true,
   "audio_devs": {
     "Speakers": { // Display name used in UI when select device
       "dev": "pcmC1D0p", // Dev name in /dev/snd

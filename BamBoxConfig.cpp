@@ -50,6 +50,7 @@ static bambox::Error parse_config(bambox::BamBoxConfig& config, const char* conf
     auto config_json = nlohmann::json::parse(std::ifstream(config_path), nullptr, true, true);
     config.cd_mount_point = config_json.at("cd_mount");
     config.cd_cache = config_json.at("cd_cache");
+    config.dark_mode = config_json.at("dark_mode");
     config.default_audio_dev = config_json.at("audio_dev_default");
     const auto& gpio = config_json.at("gpio");
     config.prev_gpio = gpio.at("prev");
@@ -148,6 +149,7 @@ bambox::Error dump_config(const bambox::BamBoxConfig& cfg) {
   nlohmann::json cfg_json = nlohmann::json::object();
   cfg_json["cd_mount"] = cfg.cd_mount_point;
   cfg_json["cd_cache"] = cfg.cd_cache;
+  cfg_json["dark_mode"] = cfg.dark_mode;
   cfg_json["audio_dev_default"] = cfg.default_audio_dev;
   cfg_json["gpio"] = nlohmann::json::object();
   cfg_json["gpio"]["prev"] = cfg.prev_gpio;
@@ -160,12 +162,12 @@ bambox::Error dump_config(const bambox::BamBoxConfig& cfg) {
   cfg_json["audio_devs"] = nlohmann::json::object();
   for (const auto& dev : cfg.audio_devs) {
     auto dev_json = nlohmann::json::object();
-    dev_json["dev"] = dev.display_name;
+    dev_json["dev"] = dev.device_name;
     dev_json["mixer"] = dev.mixer_name;
     dev_json["volume"] = dev.volume;
     cfg_json["audio_devs"][dev.display_name] = dev_json;
   }
 
-  fp << cfg_json;
+  fp << cfg_json.dump(4);
   return {};
 }

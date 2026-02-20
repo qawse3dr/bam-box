@@ -45,6 +45,7 @@ struct BamBoxConfig {
   std::string cd_cache;
   std::vector<AudioDevCfg> audio_devs{};
   std::string default_audio_dev{};
+  bool dark_mode{};
 
   uint8_t prev_gpio;
   uint8_t play_gpio;
@@ -59,6 +60,8 @@ struct BamBoxConfig {
 
   std::string gtk_ui_path_ = "/ca/larrycloud/bambox/ui/bambox.ui";
   std::string gtk_style_path_ = "/ca/larrycloud/bambox/ui/bambox.css";
+  std::string gtk_style_light_path_ = "/ca/larrycloud/bambox/ui/bambox_light.css";
+  std::string gtk_style_dark_path_ = "/ca/larrycloud/bambox/ui/bambox_dark.css";
 };
 
 }  // namespace bambox

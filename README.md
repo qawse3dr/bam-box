@@ -25,7 +25,9 @@ make install
 TODO
 - curl
 - libdiscid
-- gtk
+- gtk4
+- flac
+- nlohmann json
 
 ### Building
 This repo makes use of QNX's recursive make which can be build by simply typing make. After it is build the artifacts
@@ -49,18 +51,21 @@ JLEVEL=4 make
   - [ ] USB (usb headphone)
 - [x] CD Eject
 - [x] Album track selection
-- [ ] Settings
+- [x] Settings
   - [ ] In UI update
     - [ ] Default output
     - [ ] Default Soft Volume
-  - [ ] JSON file
-- [ ] Dump FLAC files
-- [ ] Upload to webdav server
+    - [ ] Dark/Light Mode
+  - [x] About BamBox
+  - [x] About CD
+  - [x] JSON file
+  - [ ] Dump FLAC files
+    - [ ] Upload to webdav server
 
 ### Bugs
 
 
 ### Improvements
 - [ ] The design is super tightly coupled, might be better to make the cdreader and audio player singletons or create a state which allows control
-- [ ] Split the screens into separate classes instead of being part of BamBox
 - [ ] Finish custom BSP that can be build from a single cmd
+- [ ] Make setting menu scrollable
