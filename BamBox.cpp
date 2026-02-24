@@ -540,13 +540,13 @@ void BamBox::ui_activate() {
 
   setting_buttons_.add_button(
       std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_BUTTONS_OUTPUT, [&](auto* gtk_button, auto* button) {
-        output_overlay_list_->clear();
+        settings_output_overlay_list_->clear();
         for (const auto& dev_name : audio_player_->get_device_names()) {
-          output_overlay_list_->add_label(dev_name.c_str());
+          settings_output_overlay_list_->add_label(dev_name.c_str());
         }
 
-        ui_show_overlay(output_overlay_, InputState::LIST);
-        ui_set_list(output_overlay_list_);
+        ui_show_overlay(settings_output_overlay_, InputState::LIST);
+        ui_set_list(settings_output_overlay_list_);
       }));
 
   setting_buttons_.add_button(
@@ -626,6 +626,19 @@ void BamBox::ui_activate() {
       nullptr);
 
   settings_output_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_OUTPUT));
+  settings_output_overlay_list_ = std::make_shared<ui::BamBoxList>(
+      builder, GID_SETTING_OVERLAY_OUTPUT_LIST, nullptr, [&](ui::BamBoxButton& button, int idx) {
+        cfg_.default_audio_dev = gtk_button_get_label(button.as_button());
+        dump_config(cfg_);
+
+        // Update both the default volume and output
+        auto& devs = cfg_.audio_devs;
+        auto dev = std::find_if(devs.begin(), devs.end(),
+                                [&](const auto& d) { return d.display_name == cfg_.default_audio_dev; });
+        gtk_label_set_label(settting_volume_label_, fmt::format("({}%)", dev->volume).c_str());
+        gtk_label_set_label(settting_output_label_, fmt::format("({})", cfg_.default_audio_dev).c_str());
+      });
+
   settings_cd_info_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_CD_INFO));
 
   cd_info_album_name_ = GTK_LABEL(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_CD_INFO_ALBUM_NAME));
