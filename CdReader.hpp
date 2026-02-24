@@ -49,6 +49,7 @@ class CdReader {
     std::string genre_ = "Unknown";
     std::string release_id_{};
     std::string album_art_path_{};
+    std::string release_date_ = "Unknown";
     uint64_t sectors_;
     std::vector<Song> songs_{};
     uint64_t lout_track_lba_;

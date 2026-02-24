@@ -382,6 +382,10 @@ bambox::Error CdReader::update_disc_info() {
       if (release.contains("artist-credit") && release["artist-credit"].size() > 0) {
         current_cd_.artist_ = release["artist-credit"].front()["name"];
       }
+      if (release.contains("date")) {
+        current_cd_.release_date_ = release["date"];
+      }
+
       current_cd_.title_ = release["title"];
       for (auto track : release["media"][0]["tracks"]) {
         // TODO update to get it from the track info instead.

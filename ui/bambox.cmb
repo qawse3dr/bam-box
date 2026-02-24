@@ -2,11 +2,11 @@
 <!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
 <!-- Created with Cambalache 0.96.3 -->
 <cambalache-project version="0.96.0" target_tk="gtk-4.0">
-  <gresources filename="bambox.gresource.xml" sha256="969d74e6b677cc0aaff7dcf447d9bbe61764ee2ee21654c96a0b0b360264ff41"/>
+  <gresources filename="bambox.gresource.xml" sha256="d3077d435babb6404bd158eff76e6db096c8821645822c522b26b7fa4e5b61f1"/>
   <css filename="bambox.css" is_global="1"/>
   <css filename="bambox_light.css" is_global="0"/>
   <css filename="bambox_dark.css" is_global="1"/>
-  <ui filename="bambox.ui" sha256="0dcc4648ad552ba752ab13c0d5ab4789aec14b579fda98747dff3f78887c1a51">
+  <ui filename="bambox.ui" sha256="fdada1d5d831fe9022349a0c8c414ecb6b5802df2543b183448ec041dec16263">
     <css-provider>bambox.css</css-provider>
     <css-provider>bambox_dark.css</css-provider>
   </ui>

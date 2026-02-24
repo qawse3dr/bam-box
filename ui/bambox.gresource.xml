@@ -18,5 +18,6 @@
     <file alias="backup.png">res/backup.png</file>
     <file alias="info.png">res/info.png</file>
     <file alias="credit.png">res/credit.png</file>
+    <file alias="system-shutdown.png">res/system-shutdown.png</file>
   </gresource>
 </gresources>

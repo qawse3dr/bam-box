@@ -35,13 +35,18 @@
 #include "LcdDisplay.hpp"
 #include "platform/Gpio.hpp"
 
+#include "util/BamBoxButtonGroup.hpp"
+#include "util/BamBoxList.hpp"
+#include "util/BamBoxSlider.hpp"
+
 namespace bambox {
 class BamBox {
  private:
   enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
   enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
-  enum class InputState { MAIN, VOLUME, LIST, SETTINGS, INFO };
+  enum class InputState { BUTTON_GROUP, VOLUME, LIST, INFO };
 
+  // TODO make this also contain the active element.
   using UIStackPopFunc = std::function<void(void)>;
   using UIStackElement = std::pair<InputState, UIStackPopFunc>;
 
@@ -115,39 +120,18 @@ class BamBox {
     ui_push_stack(state, std::bind(&BamBox::ui_hide_overlay, this));
   }
 
-  void ui_set_button_active(GtkButton* button, bool active) {
-    if (active) {
-      gtk_widget_set_state_flags(GTK_WIDGET(button), GTK_STATE_FLAG_PRELIGHT, false);
-    } else {
-      gtk_widget_unset_state_flags(GTK_WIDGET(button), GTK_STATE_FLAG_PRELIGHT);
-    }
-  }
-
-  void ui_set_list(GtkListBox* list, size_t length, GtkScrolledWindow* window, size_t selected = 0) {
+  void ui_set_list(std::shared_ptr<ui::BamBoxList>& list, size_t selected = 0) {
     assert(list == nullptr && "list null");
 
-    active_lists_idx_ = selected;
     active_list_ = list;
-    active_lists_win_ = window;
-    active_list_len_ = length;
-
-    // Select the correct idx.
-    auto row = gtk_list_box_get_row_at_index(active_list_, active_lists_idx_);
-    gtk_widget_set_state_flags(gtk_list_box_row_get_child(row), GTK_STATE_FLAG_PRELIGHT, false);
-
-    if (window != nullptr) {
-      gtk_scrolled_window_set_policy(window, GTK_POLICY_NEVER, GTK_POLICY_EXTERNAL);
-    }
+    active_list_->select(selected);
   }
 
   void ui_handle_input(InputType type);
-  void ui_main_input(InputType type);
+  void ui_button_group_input(InputType type);
   void ui_volume_input(InputType type);
   void ui_list_input(InputType type);
-  void ui_setting_input(InputType type);
   void ui_info_input(InputType type);
-
-  
 
  private:
   BamBoxConfig cfg_;
@@ -170,49 +154,65 @@ class BamBox {
 
   // UI application
   GtkApplication* app_{};
-  InputState input_state_ = InputState::MAIN;
+  GtkWindow* window_{};
+  InputState input_state_ = InputState::BUTTON_GROUP;
 
   // Main screen song info.
   // [track, album, artist]
+  ui::BamBoxButtonGroup menu_buttons_{};
   std::array<GtkLabel*, 3> song_info_text_;
-  GtkProgressBar* song_progress_{};
+  std::shared_ptr<ui::BamBoxSlider> song_progress_{};
   GtkImage* album_art_{};
-
-  GtkWindow* window_{};
-
-  size_t menu_button_idx_ = 0;
-  std::vector<GtkButton*> menu_buttons_{};
-
-  size_t setting_button_idx_ = 0;
-  std::vector<GtkButton*> setting_buttons_{};
-
-  // List menu
-  GtkListBox* active_list_{};
-  GtkScrolledWindow* active_lists_win_{};
+  
+  // Active objects
+  std::shared_ptr<ui::BamBoxList> active_list_{};
   GtkWidget* active_overlay_{};
-  int active_lists_idx_ = 0;
-  size_t active_list_len_ = 0;
-
+  std::shared_ptr<ui::BamBoxSlider> active_slider_{};
+  
   // Stack and children screens
   GtkStack* screen_stack_{};
-
+  
   // Volume Overlay
   GtkWidget* volume_overlay_{};
-  GtkProgressBar* volume_overlay_level_{};
-
+  std::shared_ptr<ui::BamBoxSlider> volume_overlay_level_{};
+  
   // Audio Select Overlay
+  std::shared_ptr<ui::BamBoxList> output_overlay_list_{};
   GtkWidget* output_overlay_{};
-  GtkListBox* output_overlay_list_{};
 
   // Tracks Select Overlay
   GtkWidget* tracks_overlay_{};
-  GtkListBox* tracks_overlay_list_{};
-  GtkScrolledWindow* tracks_overlay_win_{};
+  std::shared_ptr<ui::BamBoxList> tracks_overlay_list_{};
+
+
+  // Setting Page
+  ui::BamBoxButtonGroup setting_buttons_{};
+  GtkScrolledWindow* setting_win_{};
+  GtkLabel* settting_output_label_{};
+  GtkLabel* settting_volume_label_{};
+  GtkSwitch* settting_theme_switch_{};
+  GtkLabel* settting_dump_label_{};
+
+
+  ui::BamBoxButtonGroup* selected_button_ = &menu_buttons_;
 
   // Setting Overlays
   GtkWidget* settings_about_overlay_{};
   GtkWidget* settings_dump_overlay_{};
 
+  GtkWidget* settings_volume_overlay_{};
+  std::shared_ptr<ui::BamBoxSlider> settings_volume_slider_{};
+  
+  GtkWidget* settings_output_overlay_{};
+  std::shared_ptr<ui::BamBoxList> settings_output_overlay_list_{};
+
+  GtkWidget* settings_cd_info_overlay_{};
+  GtkLabel* cd_info_album_name_{};
+  GtkLabel* cd_info_artist_name_{};
+  GtkLabel* cd_info_track_count_{};
+  GtkLabel* cd_info_album_length_{};
+  GtkLabel* cd_info_release_date_{};
+  GtkImage* cd_info_album_art_{};
 
   std::chrono::seconds current_time_{};
 };

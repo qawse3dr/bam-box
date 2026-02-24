@@ -19,50 +19,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
  * SOFTWARE.
  */
-window {
-  background-color: white;
-}
+#pragma once
 
-label {
-  color: black;
-}
+#include <gtk/gtk.h>
 
-separator {
-  color: #ff4539;
-  background-color:  #ff4539;
-}
-
-progressbar text {
-  color: black;
-}
-
-.overlay-list-text {
-  color: white;
-}
-
-.overlay-label {
-  color: white;
-}
-
-.menu-button {
-  background-color: #ff4539;
-}
-
-.menu-button:hover {
-  border-color: black;
-  background-color: #e03a30;
-}
-
-.overlay {
-  background-color: #ff1000;
-  border-color: black;
-}
+#include <BamBoxError.hpp>
 
 
-progressbar progress {
-  background-color: #ff4539;
-}
 
-switch:checked {
-    background-color: #ff4539;
+namespace bambox::ui {
+class BamBoxElement {
+  protected:
+  GtkWidget*  widget_{};
+
+
+  static GtkWidget* from_builder(GtkBuilder* builder, const char* name);
+public:
+  BamBoxElement(GtkWidget* widget);
+  GtkWidget* as_widget() const;
+  Error add_style(const char* cls);
+  virtual void activate();
+};
 }

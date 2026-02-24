@@ -1,68 +1,59 @@
 /*
  * Copyright (C) 2025 Larry Milne (https://www.larrycloud.ca)
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-window {
-  background-color: white;
+
+#include "util/BamBoxSlider.hpp"
+
+using bambox::ui::BamBoxSlider;
+
+BamBoxSlider::BamBoxSlider(GtkBuilder* builder, const char* path, OnChangeCB change_cb, OnCommitCB commit_cb, TextGenCB text_gen_cb) :
+ BamBoxElement(BamBoxElement::from_builder(builder, path)), change_cb_(change_cb), commit_cb_(commit_cb), text_gen_cb_(text_gen_cb) {
+
 }
 
-label {
-  color: black;
+void BamBoxSlider::init(int value) {
+  value_ = value;
+  gtk_progress_bar_set_fraction(as_progress_bar(), value_ /100.0);
+  if (text_gen_cb_) {
+    gtk_progress_bar_set_text(as_progress_bar(), text_gen_cb_(value_).c_str());
+  }
+  if (change_cb_) {
+    change_cb_(value_);
+  }
 }
 
-separator {
-  color: #ff4539;
-  background-color:  #ff4539;
+void BamBoxSlider::update(int delta) {
+  value_ += delta;
+  gtk_progress_bar_set_fraction(as_progress_bar(), value_ / 100.0);
+  if (text_gen_cb_) {
+    gtk_progress_bar_set_text(as_progress_bar(), text_gen_cb_(value_).c_str());
+  }
+
+  if (change_cb_) {
+    change_cb_(value_);
+  }
 }
 
-progressbar text {
-  color: black;
-}
-
-.overlay-list-text {
-  color: white;
-}
-
-.overlay-label {
-  color: white;
-}
-
-.menu-button {
-  background-color: #ff4539;
-}
-
-.menu-button:hover {
-  border-color: black;
-  background-color: #e03a30;
-}
-
-.overlay {
-  background-color: #ff1000;
-  border-color: black;
-}
-
-
-progressbar progress {
-  background-color: #ff4539;
-}
-
-switch:checked {
-    background-color: #ff4539;
+void BamBoxSlider::commit() {
+  if (commit_cb_) {
+    commit_cb_(value_);
+  }
 }

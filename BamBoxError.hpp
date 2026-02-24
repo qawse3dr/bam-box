@@ -41,15 +41,22 @@ enum class ECode {
 };
 
 struct Error {
-  Error(ECode err_code, const std::string &err_msg) : code(err_code), msg(err_msg) {}
+  Error(ECode err_code, const std::string &err_msg, errno_t errno_num = EOK) : code(err_code), msg(err_msg), errno_num_(errno_num) {}
   Error() = default;
   ECode code = ECode::ERR_OK;
   std::string msg = "";
+  errno_t errno_num_ = EOK;
 
   inline bool is_error() { return code != ECode::ERR_OK; }
   inline bool is_ok() { return code == ECode::ERR_OK; }
 
-  std::string str() { return fmt::format("{}: {}", ecode_as_str(code), msg); }
+  std::string str() {  
+    if (errno_num_ == EOK) {
+      return fmt::format("{}: {}", ecode_as_str(code), msg);
+    } else {
+      return fmt::format("{}(errno={}): {}", ecode_as_str(code), strerror(errno_num_), msg);
+    }
+    }
   inline const char *ecode_as_str(ECode code) {
     switch (code) {
       case ECode::ERR_OK:

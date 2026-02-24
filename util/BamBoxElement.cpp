@@ -1,68 +1,50 @@
 /*
  * Copyright (C) 2025 Larry Milne (https://www.larrycloud.ca)
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-window {
-  background-color: white;
+#include "util/BamBoxElement.hpp"
+
+#include <spdlog/spdlog.h>
+
+#include <cassert>
+#include <cstdlib>
+
+using bambox::ui::BamBoxElement;
+
+BamBoxElement::BamBoxElement(GtkWidget* widget) : widget_(widget) {}
+
+GtkWidget* BamBoxElement::as_widget() const { return widget_; }
+
+GtkWidget* BamBoxElement::from_builder(GtkBuilder* builder, const char* name) {
+  auto* obj = gtk_builder_get_object(builder, name);
+  if (obj == nullptr) {
+    spdlog::critical("Failed to find element {}", name);
+    exit(1);
+  }
+  return GTK_WIDGET(obj);
 }
 
-label {
-  color: black;
+bambox::Error BamBoxElement::add_style(const char* cls) {
+  assert(widget_ != nullptr);
+  gtk_widget_add_css_class(widget_, cls);
+  return {};
 }
 
-separator {
-  color: #ff4539;
-  background-color:  #ff4539;
-}
-
-progressbar text {
-  color: black;
-}
-
-.overlay-list-text {
-  color: white;
-}
-
-.overlay-label {
-  color: white;
-}
-
-.menu-button {
-  background-color: #ff4539;
-}
-
-.menu-button:hover {
-  border-color: black;
-  background-color: #e03a30;
-}
-
-.overlay {
-  background-color: #ff1000;
-  border-color: black;
-}
-
-
-progressbar progress {
-  background-color: #ff4539;
-}
-
-switch:checked {
-    background-color: #ff4539;
-}
+void BamBoxElement::activate() { gtk_widget_activate(as_widget()); }

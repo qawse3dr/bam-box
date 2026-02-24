@@ -11,6 +11,7 @@ CFLAGS=-std=c++20 -Wall -Werror
 LIBS+=asound spdlog socket screen discid curl
 
 EXTRA_SRCVPATH+=$(PROJECT_ROOT)/platform/rpi4/
+EXTRA_SRCVPATH+=$(PROJECT_ROOT)/util
 LATE_SRCVPATH+=$(PROJECT_ROOT)/gen
 
 EXTRA_LIBVPATH+=$(QNX_TARGET)/$(CPUDIR)/usr/local/lib
