@@ -31,7 +31,7 @@ EXTRA_INCVPATH += $(GTK4_INSTALL_ROOT)/include/atk-1.0
 EXTRA_INCVPATH += $(GTK4_INSTALL_ROOT)/include/graphene-1.0
 EXTRA_INCVPATH += $(GTK4_INSTALL_ROOT)/lib/graphene-1.0/include
 EXTRA_LIBVPATH += $(GTK4_INSTALL_ROOT)/lib
-LIBS += gtk-4 glib-2.0 gobject-2.0 gio-2.0 cairo screen m epoxy intl gdk_pixbuf-2.0 pango-1.0
+LIBS += gtk-4 glib-2.0 gobject-2.0 gio-2.0 cairo screen m epoxy intl gdk_pixbuf-2.0 pango-1.0 FLAC++ FLAC
 
 PRE_INSTALL = install_extra
 EXTRA_OBJS = icons.o

@@ -34,6 +34,7 @@
 #include "AudioPlayer.hpp"
 #include "BamBoxError.hpp"
 #include "CdReader.hpp"
+#include "FlacWriter.hpp"
 #include "platform/Gpio.hpp"
 
 using bambox::BamBox;
@@ -555,8 +556,27 @@ void BamBox::ui_activate() {
   settings_dump_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_DUMP));
   dump_buttons_.add_button(std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_CANCEL,
                                                               [&](auto* gtk_button, auto* button) { ui_pop_stack(); }));
-  dump_buttons_.add_button(std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_ACCEPT,
-                                                              [&](auto* gtk_button, auto* button) { ui_pop_stack(); }));
+  dump_buttons_.add_button(
+      std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_ACCEPT, [&](auto* gtk_button, auto* button) {
+
+        cd_player_->pause();
+        CdReader::AudioData data;
+        for (const auto& song : current_cd_.songs_) {
+          cd_reader_->set_position(song.track_num_);
+          FlacWriter writer(fmt::format("tmp/{:02d} - {}.flac", song.track_num_, song.title_), current_cd_, song.track_num_);
+          while (1) {
+              cd_reader_->read(data);
+              if (data.frames == EOF) {
+                break;
+              }
+              writer.write(data.data.data(), data.frames);
+          }
+          writer.finish();
+        }
+        cd_reader_->set_position(0);
+        cd_player_->play();
+        ui_pop_stack();
+      }));
 
   settings_volume_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_VOLUME));
   settings_volume_slider_ = std::make_shared<ui::BamBoxSlider>(

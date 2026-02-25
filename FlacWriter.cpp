@@ -19,22 +19,40 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#pragma once
 
-#include <FLAC++/encoder.h>
+#include "FlacWriter.hpp"
 
-#include "AudioSink.hpp"
-#include "CdReader.hpp"
+#include "FLAC++/metadata.h"
 
-namespace bambox {
-class FlacWriter : public AudioSink {
- public:
-  FlacWriter(const std::string& path, CdReader::CD&, int track);
-  bool is_valid();
-  int write(void* data, int frames) override;
-  Error finish();
+#include <spdlog/spdlog.h>
 
- private:
-  FLAC::Encoder::File fp;
-};
-}  // namespace bambox
+using bambox::FlacWriter;
+
+FlacWriter::FlacWriter(const std::string& path, CdReader::CD&, int track) {
+  fp.init(path);
+  fp.set_compression_level(5);
+  fp.set_bits_per_sample(16);
+  fp.set_channels(2);
+  fp.set_sample_rate(44100);
+}
+
+bool FlacWriter::is_valid() { return fp.is_valid(); }
+
+int FlacWriter::write(void* data, int frames) {
+  // convert PCM data into flac array
+  FLAC__int32 pcm[frames * 2];
+  uint8_t* buffer = (uint8_t*)data;
+  for (int i = 0; i < frames * 2; i++) {
+    pcm[i] = (int16_t)(buffer[2*i] | (buffer[2*i + 1] << 8));
+  }
+
+  if (!fp.process_interleaved(pcm, frames)) {
+    spdlog::warn("error writing data {}", FLAC__StreamEncoderStateString[fp.get_state()]);
+  }
+  return 0;
+}
+
+bambox::Error FlacWriter::finish() {
+  fp.finish();
+  return {};
+}
