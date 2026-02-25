@@ -31,10 +31,10 @@
 #include "AudioPlayer.hpp"
 #include "BamBoxConfig.hpp"
 #include "BamBoxError.hpp"
+#include "CdPlayer.hpp"
 #include "CdReader.hpp"
 #include "LcdDisplay.hpp"
 #include "platform/Gpio.hpp"
-
 #include "util/BamBoxButtonGroup.hpp"
 #include "util/BamBoxList.hpp"
 #include "util/BamBoxSlider.hpp"
@@ -42,7 +42,6 @@
 namespace bambox {
 class BamBox {
  private:
-  enum class State { UNKNOWN, EJECTED, LOADING, PLAYING, NO_DISC, EXIT };
   enum class InputType { LEFT, RIGHT, PRESS, PREV, PLAY, NEXT };
   enum class InputState { BUTTON_GROUP, VOLUME, LIST, INFO };
 
@@ -61,20 +60,15 @@ class BamBox {
   Error config(BamBoxConfig&& cfg);
   void stop();
 
-  // Music controls
-  Error pause();
-  Error resume();  // todo rename to play()?
-  Error prev();
-
   /**
    * @brief Plays next track, or given track
    *
    * @param track Track to play, if negative one will default to next track
    */
   Error next(int track = -1);
+  Error prev();
 
  private:
-  void cd_player_loop();
 
   // UI calls
   void ui_activate();
@@ -133,24 +127,19 @@ class BamBox {
   void ui_list_input(InputType type);
   void ui_info_input(InputType type);
 
+  void cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data);
+
  private:
   BamBoxConfig cfg_;
 
   // Cd functions
-  std::unique_ptr<CdReader> cd_reader_{};
-  std::unique_ptr<AudioPlayer> audio_player_{};
+  std::shared_ptr<CdReader> cd_reader_{};
+  std::shared_ptr<AudioPlayer> audio_player_{};
+  std::unique_ptr<CdPlayer> cd_player_{};
   std::shared_ptr<platform::Gpio> gpio_{};
   std::unique_ptr<LcdDisplay> lcd_display_{};
 
   std::stack<UIStackElement> ui_stack_{};
-
-  // Running state
-  std::thread cd_thread_{};
-  std::mutex mtx_{};
-  std::condition_variable cv_{};
-  State state_ = State::UNKNOWN;
-  bool is_paused_ = false;
-  bool seek_request_ = false;
 
   // UI application
   GtkApplication* app_{};
@@ -163,19 +152,19 @@ class BamBox {
   std::array<GtkLabel*, 3> song_info_text_;
   std::shared_ptr<ui::BamBoxSlider> song_progress_{};
   GtkImage* album_art_{};
-  
+
   // Active objects
   std::shared_ptr<ui::BamBoxList> active_list_{};
   GtkWidget* active_overlay_{};
   std::shared_ptr<ui::BamBoxSlider> active_slider_{};
-  
+
   // Stack and children screens
   GtkStack* screen_stack_{};
-  
+
   // Volume Overlay
   GtkWidget* volume_overlay_{};
   std::shared_ptr<ui::BamBoxSlider> volume_overlay_level_{};
-  
+
   // Audio Select Overlay
   std::shared_ptr<ui::BamBoxList> output_overlay_list_{};
   GtkWidget* output_overlay_{};
@@ -183,7 +172,6 @@ class BamBox {
   // Tracks Select Overlay
   GtkWidget* tracks_overlay_{};
   std::shared_ptr<ui::BamBoxList> tracks_overlay_list_{};
-
 
   // Setting Page
   ui::BamBoxButtonGroup setting_buttons_{};
@@ -193,16 +181,18 @@ class BamBox {
   GtkSwitch* settting_theme_switch_{};
   GtkLabel* settting_dump_label_{};
 
-
   ui::BamBoxButtonGroup* selected_button_ = &menu_buttons_;
 
   // Setting Overlays
   GtkWidget* settings_about_overlay_{};
+
   GtkWidget* settings_dump_overlay_{};
+  ui::BamBoxButtonGroup dump_buttons_{};
+
 
   GtkWidget* settings_volume_overlay_{};
   std::shared_ptr<ui::BamBoxSlider> settings_volume_slider_{};
-  
+
   GtkWidget* settings_output_overlay_{};
   std::shared_ptr<ui::BamBoxList> settings_output_overlay_list_{};
 
@@ -215,5 +205,7 @@ class BamBox {
   GtkImage* cd_info_album_art_{};
 
   std::chrono::seconds current_time_{};
+  CdReader::CD current_cd_{};
+  CdReader::Song current_song_{};
 };
 }  // namespace bambox

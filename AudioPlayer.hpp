@@ -27,11 +27,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "AudioSink.hpp"
 #include "BamBoxConfig.hpp"
 #include "BamBoxError.hpp"
 
 namespace bambox {
-class AudioPlayer {
+class AudioPlayer : public AudioSink {
  public:
   struct AudioDevice {
     std::string display_name = {};
@@ -88,7 +89,7 @@ class AudioPlayer {
    * @param data Data to be written into the audio stream
    * @param frames amount of frames contained in the data. Note this is not the same as the length
    */
-  int write(void *data, int frames);
+  int write(void *data, int frames) override;
 };
 
 }  // namespace bambox

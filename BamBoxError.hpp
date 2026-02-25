@@ -37,11 +37,13 @@ enum class ECode {
   ERR_NOFILE,
   ERR_IO,
   ERR_RANGE,
-  ERR_OOM
+  ERR_OOM,
+  ERR_NO_DATA
 };
 
 struct Error {
-  Error(ECode err_code, const std::string &err_msg, errno_t errno_num = EOK) : code(err_code), msg(err_msg), errno_num_(errno_num) {}
+  Error(ECode err_code, const std::string &err_msg, errno_t errno_num = EOK)
+      : code(err_code), msg(err_msg), errno_num_(errno_num) {}
   Error() = default;
   ECode code = ECode::ERR_OK;
   std::string msg = "";
@@ -50,14 +52,15 @@ struct Error {
   inline bool is_error() { return code != ECode::ERR_OK; }
   inline bool is_ok() { return code == ECode::ERR_OK; }
 
-  std::string str() {  
+  std::string str() const {
     if (errno_num_ == EOK) {
       return fmt::format("{}: {}", ecode_as_str(code), msg);
     } else {
       return fmt::format("{}(errno={}): {}", ecode_as_str(code), strerror(errno_num_), msg);
     }
-    }
-  inline const char *ecode_as_str(ECode code) {
+  }
+
+  inline const char *ecode_as_str(ECode code) const {
     switch (code) {
       case ECode::ERR_OK:
         return "ERROR_OK";

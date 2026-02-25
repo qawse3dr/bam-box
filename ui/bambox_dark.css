@@ -39,6 +39,10 @@ progressbar text {
   background-color: #222226;
 }
 
+.box-button:hover {
+  background-color: #38383b;
+}
+
 .menu-button:hover {
   border-color: blue;
   background-color: #38383b;

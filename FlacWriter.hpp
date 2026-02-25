@@ -1,91 +1,31 @@
 /*
  * Copyright (C) 2025 Larry Milne (https://www.larrycloud.ca)
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-label {
-  font-size: 28px;
-}
+#pragma once
 
-.song-info-text {
-  font-size: 36px;
-}
+#include "AudioSink.hpp"
 
-.setting-menu-label {
-  font-size: 36px;
-}
-
-.overlay-label {
-  font-size: 36px;
-}
-
-.overlay-list {
-  font-size: 36px;
-}
-
-.menu-button {
-  border-width: 0px;
-  background-image: none;
-  box-shadow: none;
-  border-radius: 0px;
-}
-
-.box-button {
-  border-width: 0px;
-  background-image: none;
-  box-shadow: none;
-  border-radius: 0px;
-}
-
-.menu-button:hover {
-  border-style: solid;
-  background-image: none;
-  /* REMOVE default background */
-  box-shadow: none;
-  /* REMOVE theme shadows */
-}
-
-.overlay {
-  margin-left: 50px;
-  margin-right: 50px;
-  margin-bottom: 110px;
-  margin-top: 60px;
-  padding: 10px;
-  border: 5px;
-  border-style: solid;
-}
-
-.list-item {
-  margin-left: 60px;
-  margin-right: 60px;
-}
-
-progressbar {
-  margin-left: 10px;
-  margin-right: 10px;
-}
-
-progressbar text {
-  font-size: 28px;
-}
-
-progress,
-trough {
-  min-height: 13px;
-}
+namespace bambox {
+class FlacWrite : public AudioSink {
+ public:
+  int write(void *data, int frames) override { return 0; }
+};
+}  // namespace bambox

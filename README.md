@@ -52,10 +52,10 @@ JLEVEL=4 make
 - [x] CD Eject
 - [x] Album track selection
 - [x] Settings
-  - [ ] In UI update
-    - [ ] Default output
-    - [ ] Default Soft Volume
-    - [ ] Dark/Light Mode
+  - [x] In UI update
+    - [x] Default output
+    - [x] Default Soft Volume
+    - [x] Dark/Light Mode
   - [x] About BamBox
   - [x] About CD
   - [x] JSON file
@@ -68,4 +68,5 @@ JLEVEL=4 make
 ### Improvements
 - [ ] The design is super tightly coupled, might be better to make the cdreader and audio player singletons or create a state which allows control
 - [ ] Finish custom BSP that can be build from a single cmd
-- [ ] Make setting menu scrollable
+- [x] Create AudioSink and AudioSource which have a read and a write function so we can  have multiple sources in the future such as CDPlayer, Bluetooth player, usb player.
+AudioSource should also have the ability to get song info, and tracks.

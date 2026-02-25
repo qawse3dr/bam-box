@@ -716,14 +716,15 @@
                     <child>
                       <object class="GtkBox">
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="dump-cancel-button">
+                            <property name="css-classes">box-button</property>
                             <property name="halign">center</property>
                             <property name="hexpand">True</property>
                             <property name="label">Cancel</property>
                           </object>
                         </child>
                         <child>
-                          <object class="GtkButton">
+                          <object class="GtkButton" id="dump-accept-button">
                             <property name="css-classes">box-button</property>
                             <property name="halign">center</property>
                             <property name="hexpand">True</property>

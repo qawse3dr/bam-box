@@ -102,6 +102,10 @@ const char* GID_OVERLAY_TRACKS_WIN = "tracks-overlay-window";
 // Settings - Audio Device
 const char* GID_SETTING_OVERLAY_OUTPUT_LIST = "setting-output-overlay-list";
 
+// Settings - DUMP
+const char* GID_SETTING_OVERLAY_DUMP_CANCEL = "dump-cancel-button";
+const char* GID_SETTING_OVERLAY_DUMP_ACCEPT = "dump-accept-button";
+
 // Settings - Volume
 const char* GID_SETTING_OVERLAY_VOLUME_PROGRESS = "setting-volume-progress";
 
@@ -123,8 +127,11 @@ BamBox::~BamBox() {}
 bambox::Error BamBox::config(BamBoxConfig&& cfg) {
   spdlog::info("Configuring...");
   cfg_ = std::move(cfg);
-  cd_reader_ = std::make_unique<CdReader>(cfg_.cd_mount_point);
-  audio_player_ = std::make_unique<AudioPlayer>();
+  cd_reader_ = std::make_shared<CdReader>(cfg_.cd_mount_point);
+  audio_player_ = std::make_shared<AudioPlayer>();
+  cd_player_ = std::make_unique<CdPlayer>(
+      cd_reader_, audio_player_,
+      std::bind(&BamBox::cd_player_event, this, std::placeholders::_1, std::placeholders::_2));
   gpio_ = std::make_shared<platform::Gpio>();
   lcd_display_ = std::make_unique<LcdDisplay>(gpio_);
 
@@ -149,93 +156,57 @@ bambox::Error BamBox::config(BamBoxConfig&& cfg) {
   return {};
 }
 
-void BamBox::cd_player_loop() {
-  // On boot we need to show the splash screen
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  auto cb = (GSourceOnceFunc) + [](BamBox* bambox) {
-    spdlog::info("setting visible child main");
-    gtk_stack_set_visible_child_name(bambox->screen_stack_, GID_SCREEN_STACK_MAIN_SCREEN);
-  };
-  g_idle_add_once(cb, this);
-
-  while (1) {
-    {
-      std::lock_guard<std::mutex> lk(mtx_);
-      state_ = State::NO_DISC;
+void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data) {
+  switch (e) {
+    case CdPlayer::Event::STARTUP: {
+      spdlog::info("cd_event: STARTUP");
+      auto cb = (GSourceOnceFunc) + [](BamBox* bambox) {
+        spdlog::info("setting visible child main");
+        gtk_stack_set_visible_child_name(bambox->screen_stack_, GID_SCREEN_STACK_MAIN_SCREEN);
+      };
+      g_timeout_add_once(3000, cb, this);
+      cd_player_->load();
+      break;
     }
-    spdlog::info("Waiting for CD...");
-    ui_update_track_info();
-    ui_update_album_art();
-    while (cd_reader_->wait_for_disc().is_error())
-      ;
+    case CdPlayer::Event::CD_EJECTED:
+      spdlog::info("cd_event: EJECTED {}", std::get<Error>(data).str());
 
-    {
-      std::lock_guard<std::mutex> lk(mtx_);
-      state_ = State::LOADING;
-    }
-    auto res = cd_reader_->load();
-    if (res.is_error()) {
-      spdlog::warn("Failed to load CD with: {}", res.str());
-      continue;
-    }
-
-    cd_reader_->update_disc_info();
-    {
-      std::lock_guard<std::mutex> lk(mtx_);
-      state_ = State::PLAYING;
-    }
-    auto disc = cd_reader_->get_disc();
-    spdlog::info("Playing cd: \"{}\" by: \"{}\": id: {}", disc.title_, disc.artist_, cd_reader_->get_disc_id());
-
-    cd_reader_->set_position(1);
-    ui_update_track_info();
-    ui_update_album_art();
-    while (1) {
-      auto track = disc.songs_[cd_reader_->get_track_number() - 1];
-      spdlog::info("Playing track({}): \"{}\" by: {}", track.track_num_, track.title_, track.artist_);
+      // start loader loop?
+      current_cd_ = CdReader::CD();
       ui_update_track_info();
+      ui_update_album_art();
+      cd_player_->load();
+      // reset cd
+      break;
+    case CdPlayer::Event::CD_LOADED:
+      spdlog::info("cd_event: LOADED");
+      current_cd_ = std::get<CdReader::CD>(data);
+      ui_update_track_info();
+      ui_update_album_art();
+      cd_reader_->set_position(1);
+      current_song_ = current_cd_.songs_[0];
+      cd_player_->play();
+      spdlog::info("cd_event: LOADED END");
+      break;
+    case CdPlayer::Event::CD_TRACK_ENDED: {
+      spdlog::info("cd_event: TRACK_ENDED");
 
-      {
-        std::unique_lock<std::mutex> lk(mtx_);
-        // If there was a seek request update the song info.
-        if (seek_request_) {
-          seek_request_ = false;
-          continue;  // Update track info.
-        }
-
-        if (is_paused_) {
-          spdlog::info("Song paused... cd thread going to sleep");
-          cv_.wait(lk, [&]() { return state_ != State::PLAYING || !is_paused_ || seek_request_; });
-          continue;  // continue to update track in case it changed when we were sleeping
-        }
+      auto track_num = (current_song_.track_num_ + 1);
+      if (track_num > current_cd_.songs_.size()) {
+        track_num = 1;
       }
-
-      auto res = cd_reader_->play([&](const std::chrono::seconds& sec, void* data, int frames) -> int {
-        ui_update_track_time(sec);
-        audio_player_->write(data, frames);
-        return 0;
-      });
-
-      {
-        std::unique_lock<std::mutex> lk(mtx_);
-        if (res.is_error()) {
-          spdlog::warn("Failed to play cd with: {}", res.str());
-          break;
-        } else if (!is_paused_ && !seek_request_) {
-          lk.unlock();
-          res = next();
-          if (res.is_error()) {
-            spdlog::warn("Failed too play next songs with: {}", res.str());
-          }
-        }
-      }
+      auto res = cd_reader_->set_position(track_num);
+      ui_update_track_info();
+      break;
     }
+    case CdPlayer::Event::CD_TIME_UPDATE:
+      spdlog::info("cd_event: TIME_UPDATE");
+      ui_update_track_time(std::get<std::chrono::seconds>(data));
+      break;
   }
 }
 
 bambox::Error BamBox::go() {
-  cd_thread_ = std::thread([this] { this->cd_player_loop(); });
-
   auto res = lcd_display_->go();
   if (res.is_error()) {
     return res;
@@ -319,38 +290,9 @@ bambox::Error BamBox::go() {
   return {};
 }
 
-bambox::Error BamBox::pause() {
-  std::lock_guard<std::mutex> lk(mtx_);
-  if (is_paused_ || (state_ != State::PLAYING)) {
-    return {ECode::ERR_AGAIN, "pause(): Already paused or not playing."};
-  }
-  audio_player_->pause(false);
-  cd_reader_->stop();
-  is_paused_ = true;
-  return {};
-}
-
-bambox::Error BamBox::resume() {
-  std::lock_guard<std::mutex> lk(mtx_);
-  if (!is_paused_ || (state_ != State::PLAYING)) {
-    return {ECode::ERR_AGAIN, "resume(): Already playing or not disc."};
-  }
-
-  is_paused_ = false;
-  audio_player_->pause(true);
-  cv_.notify_all();
-  return {};
-}
-
 bambox::Error BamBox::prev() {
-  std::lock_guard<std::mutex> lk(mtx_);
-  if (state_ != State::PLAYING) {
-    return {ECode::ERR_INVAL_STATE, "Invalid state can't select prev track."};
-  }
-
-  if (!is_paused_) {
-    cd_reader_->stop();
-  }
+  cd_player_->pause();
+  // todo update to just use current_ts
   auto current_lba = cd_reader_->get_track_current_lba();
   auto start_lba = cd_reader_->get_track_start_lba();
   std::uint32_t three_sec_lba = MSF2LBA(0, 10, 0);
@@ -358,44 +300,33 @@ bambox::Error BamBox::prev() {
   if ((current_lba - start_lba) <= three_sec_lba) {  // Play Previous track.
     track_num--;
     if (track_num <= 0) {
-      track_num = cd_reader_->get_disc().songs_.size();
+      track_num = current_cd_.songs_.size();
     }
   }  // Restart track
 
   auto res = cd_reader_->set_position(track_num);
+  current_song_ = current_cd_.songs_[track_num - 1];
   ui_update_track_time(std::chrono::seconds(0));
-  seek_request_ = true;
-  cv_.notify_all();
+  ui_update_track_info();
+  cd_player_->play();
   return res;
 }
 
 bambox::Error BamBox::next(int track) {
-  std::lock_guard<std::mutex> lk(mtx_);
-  if (state_ != State::PLAYING) {
-    return {ECode::ERR_AGAIN, "Invalid state can't select prev track."};
-  }
-
-  auto track_num = (track == -1) ? (cd_reader_->get_track_number() + 1) : track;
-  if (track_num > cd_reader_->get_disc().songs_.size()) {
+  auto track_num = (track == -1) ? (current_song_.track_num_ + 1) : track;
+  if (track_num > current_cd_.songs_.size()) {
     track_num = 1;
   }
 
-  // We must stop the song
-  if (!is_paused_) {
-    cd_reader_->stop();
-  }
+  cd_player_->pause();
   auto res = cd_reader_->set_position(track_num);
-  ui_update_track_time(std::chrono::seconds(0));
-  seek_request_ = true;
-  cv_.notify_all();
+  current_song_ = current_cd_.songs_[track_num - 1];
+  ui_update_track_info();
+  cd_player_->play();
   return res;
 }
 
-void BamBox::stop() {
-  state_ = State::EXIT;
-  cv_.notify_all();
-  cd_thread_.join();
-}
+void BamBox::stop() {}
 
 /***** UI CODE ******/
 void BamBox::ui_activate() {
@@ -444,16 +375,17 @@ void BamBox::ui_activate() {
 
   menu_buttons_.add_button(
       std::make_unique<ui::BamBoxButton>(builder, GID_MENU_BUTTONS_TRACKS, [&](auto* gtk_button, auto* button) {
-        if (cd_reader_->get_disc().songs_.size() == 0) {
+        if (current_cd_.songs_.size() == 0) {
           return;  // no songs
         }
         tracks_overlay_list_->clear();
-        for (const auto& track : cd_reader_->get_disc().songs_) {
+        for (const auto& track : current_cd_.songs_) {
+          // TODO default if track name isn't found
           tracks_overlay_list_->add_label(track.title_.c_str());
         }
 
         ui_show_overlay(tracks_overlay_, InputState::LIST);
-        ui_set_list(tracks_overlay_list_, cd_reader_->get_track_number() - 1);
+        ui_set_list(tracks_overlay_list_, current_song_.track_num_ - 1);
       }));
   menu_buttons_.add_button(std::make_unique<ui::BamBoxButton>(
       builder, GID_MENU_BUTTONS_EJECT, [&](auto* gtk_button, auto* button) { cd_reader_->eject(); }));
@@ -492,7 +424,7 @@ void BamBox::ui_activate() {
   song_progress_ =
       std::make_shared<ui::BamBoxSlider>(builder, GID_SONG_INFO_PROGRESS, nullptr, nullptr, [&](int value) {
         // Cries in GCC12 :( R.I.P std::format
-        auto song_length = cd_reader_->get_current_song().length_;
+        auto song_length = current_song_.length_;
         std::ostringstream ss;
         ss << std::setw(2) << std::setfill('0')
            << std::chrono::duration_cast<std::chrono::minutes>(current_time_).count() << ":" << std::setw(2)
@@ -565,15 +497,24 @@ void BamBox::ui_activate() {
         dump_config(cfg_);
         gtk_switch_set_active(settting_theme_switch_, cfg_.dark_mode);
       }));
-  setting_buttons_.add_button(std::make_unique<ui::BamBoxButton>(
-      builder, GID_SETTING_BUTTONS_DUMP,
-      [&](auto* gtk_button, auto* button) { ui_show_overlay(settings_dump_overlay_, InputState::INFO); }));
+  setting_buttons_.add_button(
+      std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_BUTTONS_DUMP, [&](auto* gtk_button, auto* button) {
+        dump_buttons_.select(0);
+        selected_button_ = &dump_buttons_;
+        active_overlay_ = settings_dump_overlay_;
+        gtk_widget_set_visible(active_overlay_, true);
+        gtk_widget_set_opacity(active_overlay_, 1.0);
+        ui_push_stack(InputState::BUTTON_GROUP, [this] {
+          // Because it lost focus it will no longer be select so re select it.
+          selected_button_ = &setting_buttons_;
+          setting_buttons_.select(setting_buttons_.get_selected_idx());
+          ui_hide_overlay();
+        });
+      }));
   setting_buttons_.add_button(
       std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_BUTTONS_CD_INFO, [&](auto* gtk_button, auto* button) {
-        auto cd = cd_reader_->get_disc();
-
         std::chrono::seconds length{0};
-        for (const auto& song : cd.songs_) {
+        for (const auto& song : current_cd_.songs_) {
           length += song.length_;
         }
 
@@ -582,14 +523,14 @@ void BamBox::ui_activate() {
            << std::setw(2) << (std::chrono::duration_cast<std::chrono::minutes>(length).count() % 60) << ":"
            << std::setw(2) << std::setfill('0') << (length.count() % 60);
 
-        gtk_label_set_label(cd_info_album_name_, cd.title_.c_str());
-        gtk_label_set_label(cd_info_artist_name_, cd.artist_.c_str());
-        gtk_label_set_label(cd_info_track_count_, std::to_string(cd.songs_.size()).c_str());
+        gtk_label_set_label(cd_info_album_name_, current_cd_.title_.c_str());
+        gtk_label_set_label(cd_info_artist_name_, current_cd_.artist_.c_str());
+        gtk_label_set_label(cd_info_track_count_, std::to_string(current_cd_.songs_.size()).c_str());
         gtk_label_set_label(cd_info_album_length_, ss.str().c_str());
-        gtk_label_set_label(cd_info_release_date_, cd.release_date_.c_str());
+        gtk_label_set_label(cd_info_release_date_, current_cd_.release_date_.c_str());
 
-        if (!cd.album_art_path_.empty()) {
-          gtk_image_set_from_file(cd_info_album_art_, cd.album_art_path_.c_str());
+        if (!current_cd_.album_art_path_.empty()) {
+          gtk_image_set_from_file(cd_info_album_art_, current_cd_.album_art_path_.c_str());
         } else {
           gtk_image_set_from_resource(cd_info_album_art_, "/ca/larrycloud/bambox/icons/48x48/actions/logo.jpg");
         }
@@ -610,7 +551,12 @@ void BamBox::ui_activate() {
 
   /******* SETTING OVERLAYS **************/
   settings_about_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_ABOUT));
+
   settings_dump_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_DUMP));
+  dump_buttons_.add_button(std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_CANCEL,
+                                                              [&](auto* gtk_button, auto* button) { ui_pop_stack(); }));
+  dump_buttons_.add_button(std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_ACCEPT,
+                                                              [&](auto* gtk_button, auto* button) { ui_pop_stack(); }));
 
   settings_volume_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_VOLUME));
   settings_volume_slider_ = std::make_shared<ui::BamBoxSlider>(
@@ -649,16 +595,16 @@ void BamBox::ui_activate() {
   cd_info_album_art_ = GTK_IMAGE(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_CD_INFO_ALBUM_ART));
   gtk_window_present(window_);
   g_object_unref(builder);
+
+  // Done after UI as it will use gtk elements
+  cd_player_->start();
 }
 
 void BamBox::ui_update_album_art() {
   auto cb = (GSourceOnceFunc)(+[](BamBox* bambox) {
     std::string art = DEFAULT_IMAGE_PATH;  // TODO change to resource
-    if (bambox->state_ == BamBox::State::PLAYING) {
-      auto cd = bambox->cd_reader_->get_disc();
-      if (!cd.album_art_path_.empty()) {
-        art = cd.album_art_path_;
-      }
+    if (!bambox->current_cd_.album_art_path_.empty()) {
+      art = bambox->current_cd_.album_art_path_;
     }
     gtk_image_set_from_file(bambox->album_art_, art.c_str());
   });
@@ -672,9 +618,9 @@ void BamBox::ui_update_track_info() {
     std::string artist = "";
     std::string album = "";
 
-    if (bambox->state_ == BamBox::State::PLAYING) {
-      auto song = bambox->cd_reader_->get_current_song();
-      auto cd = bambox->cd_reader_->get_disc();
+    if (bambox->current_cd_.songs_.size() > 0) {
+      auto song = bambox->current_song_;
+      auto cd = bambox->current_cd_;
 
       artist = (!cd.artist_.empty()) ? cd.artist_ : "Unknown";
       album = (!cd.title_.empty()) ? cd.title_ : "Unknown";
@@ -701,8 +647,8 @@ void BamBox::ui_update_track_time(const std::chrono::seconds sec) {
     std::string time_text = "00:00/00:00";
 
     // TODO this isn't really thread safe we should have func which gives us both secs and length
-    if (bambox->state_ == State::PLAYING) {
-      auto song_length = bambox->cd_reader_->get_current_song().length_;
+    if (bambox->current_cd_.songs_.size() > 0) {
+      auto song_length = bambox->current_song_.length_;
       track_percent = static_cast<int>(100 * bambox->current_time_.count()) / song_length.count();
     }
 
@@ -742,15 +688,8 @@ void BamBox::ui_button_group_input(InputType type) {
     case InputType::PLAY: {
       if (selected_button_ == &menu_buttons_) {
         bambox::Error res;
-        if (!is_paused_) {
-          spdlog::info("Pausing song");
-          res = pause();
-        } else {
-          spdlog::info("Resuming song");
-          res = resume();
-        }
-        if (res.is_error()) {
-          spdlog::warn("Failed to play/pause with: {}", res.str());
+        if (cd_player_->pause().is_error()) {
+          cd_player_->play();
         }
       } else {
         ui_pop_stack();

@@ -21,6 +21,8 @@
  */
 #pragma once
 
+#include <sys/dcmd_cam.h>
+
 #include <chrono>
 #include <condition_variable>
 #include <functional>
@@ -67,13 +69,17 @@ class CdReader {
    */
   using SongDataCallback = std::function<int(std::chrono::seconds, void *, int)>;
 
+  // Time, data, frames (todo maybe this should be a vector)
+  struct AudioData {
+    std::chrono::seconds ts;
+    int frames;
+    std::array<uint8_t, CDROM_CDDA_FRAME_SIZE> data;
+  };
+
  private:
   std::string mount_point_;
   CD current_cd_{};
   int handle_ = -1;
-  std::mutex mtx_{};
-  std::condition_variable cv_{};
-  State state_ = State::STOPPED;
 
   // The LBA info of a track.
   // Only should be considered value when state_ is PLAYING or PAUSED
@@ -97,31 +103,18 @@ class CdReader {
   Error wait_for_disc();
   bool has_disc();
 
-  Error play(const SongDataCallback &cb);
+  Error read(CdReader::AudioData &data);
   Error set_position(uint8_t track_num, uint32_t lba_offset = 0);
-  Error stop();
 
   const CD &get_disc() const { return current_cd_; }
-  const Song &get_current_song() const {return current_cd_.songs_[track_num_-1];}
+  const Song &get_current_song() const { return current_cd_.songs_[track_num_ - 1]; }
 
   // TODO maybe we should just provide them with an offset.
-  uint32_t get_track_current_lba() const {
-    return track_lba_current_;
-  }
+  uint32_t get_track_current_lba() const { return track_lba_current_; }
   uint32_t get_track_start_lba() const { return track_lba_start_; }
   uint32_t get_track_number() const { return track_num_; }
 
-  std::string get_disc_id();
-  std::string get_freedb_id();
-
- private:
-  /**
-   * tries a function RetryCount times with a timeout inbetween before giving up
-   * and returning return val.
-   */
-  Error retry_loader(std::function<Error(void)> func);
-  Error do_eject();
-  Error do_load();
-  Error do_play(const SongDataCallback &cb);
+  static std::string get_disc_id(const CD& cd);
+  static std::string get_freedb_id(const CD& cd);
 };
 }  // namespace bambox

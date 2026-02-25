@@ -48,8 +48,6 @@ CdReader::~CdReader() {
   }
 }
 
-bambox::Error CdReader::load() { return retry_loader(std::bind(&CdReader::do_load, this)); }
-
 static std::vector<std::string> cd_pkt_reader(char pkt_data[12]) {
   int i = 0;
   char data[13] = "d";
@@ -75,7 +73,7 @@ static std::vector<std::string> cd_pkt_reader(char pkt_data[12]) {
   return values;
 }
 
-bambox::Error CdReader::do_load() {
+bambox::Error CdReader::load() {
   CD cd;
   current_cd_ = cd;  // clear the cd
 
@@ -165,7 +163,7 @@ bambox::Error CdReader::do_load() {
     cd.artist_ = cd.songs_[0].artist_;
   }
   if (cd.title_.empty()) {
-    cd.title_ = "Untilted";
+    cd.title_ = "Untitled";
   }
 
   for (Song &song : cd.songs_) {
@@ -181,13 +179,13 @@ bambox::Error CdReader::do_load() {
                    std::chrono::minutes(LBA2MIN(song.end_lba_ - song.start_lba_));
   }
   current_cd_ = cd;
+  update_disc_info();
   set_position(1);
   return {};
 }
 
 bambox::Error CdReader::set_position(uint8_t track_num, uint32_t lba_offset) {
-  std::lock_guard<std::mutex> lk(mtx_);
-  if (track_num > current_cd_.songs_.size()) {
+  if (track_num > current_cd_.songs_.size() || track_num == 0) {
     return {ECode::ERR_RANGE, "Seek out of range for cd"};
   }
   track_lba_start_ = current_cd_.songs_[track_num - 1].start_lba_;
@@ -197,23 +195,11 @@ bambox::Error CdReader::set_position(uint8_t track_num, uint32_t lba_offset) {
   return {};
 }
 
-bambox::Error CdReader::stop() {
-  std::unique_lock<std::mutex> lk(mtx_);
-  if (state_ != State::PLAYING) {
-    std::cout << "failed to stop" << std::endl;
-    return {ECode::ERR_AGAIN, "Failed to stop not running"};
+bambox::Error CdReader::eject() {
+  if (handle_ == -1) {
+    return {ECode::ERR_NOFILE, "Disc not loaded"};
   }
 
-  std::cout << "stopping" << std::endl;
-
-  state_ = State::STOPPING;
-  cv_.wait(lk, [&]() { return state_ == State::STOPPED; });
-  return {};
-}
-
-bambox::Error CdReader::eject() { return retry_loader(std::bind(&CdReader::do_eject, this)); }
-
-bambox::Error CdReader::do_eject() {
   auto ret = devctl(handle_, DCMD_CAM_EJECT_MEDIA, NULL, 0, NULL);
   if (ret == -1) {
     return {ECode::ERR_UNKNOWN, "Failed to eject disc."};
@@ -230,66 +216,35 @@ bambox::Error CdReader::do_eject() {
   return {};
 }
 
-bambox::Error CdReader::play(const SongDataCallback &cb) {
-  return retry_loader(std::bind(&CdReader::do_play, this, cb));
-}
-
 #define READ_SIZE CDROM_CDDA_FRAME_SIZE
 typedef union {
   cdrom_raw_read_t read;
   uint8_t data[READ_SIZE];
 } raw_read_reqest_t;
 
-bambox::Error CdReader::do_play(const SongDataCallback &cb) {
-  std::unique_lock<std::mutex> lk(mtx_);
-  state_ = State::PLAYING;
-  // Set the current tracks info.
-  track_lba_start_ = current_cd_.songs_[track_num_ - 1].start_lba_;
-  track_lba_end_ = current_cd_.songs_[track_num_ - 1].end_lba_;
-
-  for (; track_lba_current_ < track_lba_end_; track_lba_current_ += 1) {
-    raw_read_reqest_t req = {.read = {.lba = track_lba_current_, .nsectors = 1, .est = CDROM_EST_CDDA}};
-
-    lk.unlock();
-    int ret = devctl(handle_, DCMD_CAM_CDROMREAD, &req, sizeof(req), NULL);
-    if (ret != 0) {
-      return {bambox::ECode::ERR_IO, "Failed to read cd"};
-    }
-
-    // TODO(qawse3dr) check callback result.
-    cb(std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) +
-           std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_)),
-       req.data, CDROM_CDDA_FRAME_SIZE / 4);
-
-    lk.lock();
-    if (state_ != State::PLAYING) {
-      break;
-    }
+bambox::Error CdReader::read(CdReader::AudioData &audio) {
+  if (handle_ == -1) {
+    return {ECode::ERR_NOFILE, "Disc not loaded"};
   }
 
-  state_ = State::STOPPED;
-  cv_.notify_all();
+  // end of track return EOF
+  if (track_lba_current_ == track_lba_end_) {
+    audio.frames = EOF;
+    return {};
+  }
 
+  raw_read_reqest_t req = {.read = {.lba = track_lba_current_, .nsectors = 1, .est = CDROM_EST_CDDA}};
+  int ret = devctl(handle_, DCMD_CAM_CDROMREAD, &req, sizeof(req), NULL);
+  if (ret != 0) {
+    return {bambox::ECode::ERR_IO, "Failed to read cd", ret};
+  }
+
+  audio.ts = std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) +
+             std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_));
+  memcpy(audio.data.data(), req.data, sizeof(req.data));
+  audio.frames = CDROM_CDDA_FRAME_SIZE / 4;
+  track_lba_current_ ++;
   return {};
-}
-
-bambox::Error CdReader::retry_loader(std::function<bambox::Error(void)> func) {
-  bambox::Error res(ECode::ERR_UNKNOWN, "");
-  for (int i = 0; i < OP_RETRY_COUNT && res.is_error(); i++) {
-    // If the function failed reload the cd and cdinfo.
-    res = func();
-    if (res.is_error() && i != OP_RETRY_COUNT - 1) {
-      // No file means cd was removed.
-
-      auto load_res = do_load();
-      if (load_res.code == bambox::ECode::ERR_NOFILE) {
-        return load_res;
-      }
-      std::this_thread::sleep_for(OP_RETRY_TIMEOUT);
-    }
-  }
-
-  return res;
 }
 
 bambox::Error CdReader::wait_for_disc() {
@@ -300,7 +255,7 @@ bambox::Error CdReader::wait_for_disc() {
 }
 bool CdReader::has_disc() { return 0 == access(mount_point_.c_str(), R_OK); }
 
-static DiscId *create_disc_id_from_toc(bambox::CdReader::CD cd) {
+static DiscId *create_disc_id_from_toc(const bambox::CdReader::CD& cd) {
   if (cd.songs_.size() == 0) {
     return NULL;
   }
@@ -321,8 +276,8 @@ static DiscId *create_disc_id_from_toc(bambox::CdReader::CD cd) {
   return disc;
 }
 
-std::string CdReader::get_disc_id() {
-  DiscId *disc = create_disc_id_from_toc(current_cd_);
+std::string CdReader::get_disc_id(const CD &cd) {
+  DiscId *disc = create_disc_id_from_toc(cd);
   if (disc == NULL) {
     return "";
   }
@@ -331,8 +286,8 @@ std::string CdReader::get_disc_id() {
   return id;
 }
 
-std::string CdReader::get_freedb_id() {
-  DiscId *disc = create_disc_id_from_toc(current_cd_);
+std::string CdReader::get_freedb_id(const CD &cd) {
+  DiscId *disc = create_disc_id_from_toc(cd);
   if (disc == NULL) {
     return "";
   }
@@ -342,16 +297,15 @@ std::string CdReader::get_freedb_id() {
   return id;
 }
 
+// TODO this should be moved outside of the cd class?
 bambox::Error CdReader::update_disc_info() {
-  std::unique_lock<std::mutex> lk(mtx_);
   if (handle_ < 0) {
     return {ECode::ERR_INVAL_STATE, "CD not loaded can't pull cd info."};
   }
 
   // TODO move this to a separate thread
-
   std::string json_val = "";
-  auto disc_id = get_disc_id();
+  auto disc_id = get_disc_id(current_cd_);
   auto cached_path = "bambox-info/" + disc_id + ".json";
   if (std::filesystem::exists(cached_path)) {
     // Info already cached TODO(qawse3dr) we probably want a sqlite3 server for this instead of saving all
@@ -362,10 +316,10 @@ bambox::Error CdReader::update_disc_info() {
       (reinterpret_cast<std::ofstream *>(userdata))->write(ptr, nmemb);
       return nmemb;
     };
-    
+
     std::ofstream fp(cached_path);
     CURL *curl = curl_easy_init();
-    std::string discid_url = "http://musicbrainz.org/ws/2/discid/" + get_disc_id() + "?inc=recordings+artists&fmt=json";
+    std::string discid_url = "http://musicbrainz.org/ws/2/discid/" + disc_id + "?inc=recordings+artists&fmt=json";
     curl_easy_setopt(curl, CURLOPT_URL, discid_url.c_str());
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "bambox/0.1 (lawrencemilne38@gmail.com)");
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &fp);
@@ -374,7 +328,7 @@ bambox::Error CdReader::update_disc_info() {
     curl_easy_cleanup(curl);
     spdlog::info("update_disc_info discid curl_res={}", curl_easy_strerror(curl_res));
   }
-  
+
   try {
     std::ifstream fp(cached_path);
     auto discid_body = nlohmann::json::parse(fp);
@@ -411,7 +365,7 @@ bambox::Error CdReader::update_disc_info() {
       CURLcode curl_res = CURLE_AGAIN;
       std::string album_art_url = "http://coverartarchive.org/release/" + current_cd_.release_id_ + "/front-250";
       spdlog::info("Fetching album art from {}", album_art_url);
-      for(int i = 0; i < 3 && curl_res != CURLE_OK; i++) {
+      for (int i = 0; i < 3 && curl_res != CURLE_OK; i++) {
         FILE *fp = fopen(current_cd_.album_art_path_.c_str(), "wb");
         CURL *curl = curl_easy_init();
         curl_easy_setopt(curl, CURLOPT_URL, album_art_url.c_str());
