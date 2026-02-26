@@ -27,13 +27,25 @@
 #include <spdlog/spdlog.h>
 
 using bambox::FlacWriter;
+using FLAC::Metadata::VorbisComment;
 
-FlacWriter::FlacWriter(const std::string& path, CdReader::CD&, int track) {
-  fp.init(path);
+FlacWriter::FlacWriter(const std::string& path, CdReader::CD& cd, int track) {
   fp.set_compression_level(5);
   fp.set_bits_per_sample(16);
   fp.set_channels(2);
   fp.set_sample_rate(44100);
+
+  VorbisComment comments;
+  FLAC::Metadata::Padding padding;
+  FLAC::Metadata::Prototype* meta[] = {&comments, &padding};
+  comments.append_comment(VorbisComment::Entry("ARTIST", cd.artist_.c_str()));
+  comments.append_comment(VorbisComment::Entry("DATE", cd.release_date_.c_str()));
+  comments.append_comment(VorbisComment::Entry("ALBUM", cd.title_.c_str()));
+  comments.append_comment(VorbisComment::Entry("TRACKNUMBER", std::to_string(track).c_str()));
+  comments.append_comment(VorbisComment::Entry("TITLE", cd.songs_[track].title_.c_str()));
+  padding.set_length(1024 * 8 );
+  fp.set_metadata(meta, 2);
+  fp.init(path);
 }
 
 bool FlacWriter::is_valid() { return fp.is_valid(); }

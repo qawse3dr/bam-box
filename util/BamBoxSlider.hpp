@@ -49,6 +49,7 @@ class BamBoxSlider : public BamBoxElement {
   BamBoxSlider operator=(const BamBoxSlider&) = delete;
 
   void init(int value);
+  void init_async(int value); // Init but called in UI thread.
   void update(int delta);
   void commit();
   inline int value() { return value_; }

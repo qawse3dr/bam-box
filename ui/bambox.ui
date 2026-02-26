@@ -670,7 +670,6 @@
                   <object class="GtkBox" id="setting-dump-overlay">
                     <property name="css-classes">overlay</property>
                     <property name="orientation">vertical</property>
-                    <property name="spacing">15</property>
                     <property name="visible">False</property>
                     <child>
                       <object class="GtkLabel">
@@ -681,10 +680,12 @@
                     <child>
                       <object class="GtkSeparator">
                         <property name="height-request">5</property>
+                        <property name="margin-bottom">15</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkBox">
+                        <property name="margin-bottom">5</property>
                         <child>
                           <object class="GtkLabel">
                             <property name="label">Album Title: </property>
@@ -700,6 +701,7 @@
                     </child>
                     <child>
                       <object class="GtkBox">
+                        <property name="margin-bottom">5</property>
                         <child>
                           <object class="GtkLabel">
                             <property name="label">Tracks: </property>
@@ -736,18 +738,35 @@
                     <child>
                       <object class="GtkSeparator">
                         <property name="height-request">5</property>
+                        <property name="margin-bottom">15</property>
+                        <property name="margin-top">15</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkProgressBar">
-                        <property name="show-text">True</property>
+                      <object class="GtkLabel">
+                        <property name="css-classes">progress-text</property>
+                        <property name="halign">center</property>
+                        <property name="height-request">20</property>
+                        <property name="label">Song Progress</property>
+                        <property name="margin-top">5</property>
+                        <property name="valign">center</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkProgressBar" id="dump-song-progress">
                         <property name="text">Song Progress 0%</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkProgressBar">
+                      <object class="GtkLabel">
+                        <property name="css-classes">progress-text</property>
+                        <property name="label">Disc Progress</property>
+                        <property name="margin-top">15</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkProgressBar" id="dump-disc-progress">
                         <property name="margin-bottom">10</property>
-                        <property name="show-text">True</property>
                         <property name="text">Disc Progress 0/0</property>
                       </object>
                     </child>

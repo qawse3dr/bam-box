@@ -59,14 +59,12 @@ JLEVEL=4 make
   - [x] About BamBox
   - [x] About CD
   - [x] JSON file
-  - [ ] Dump FLAC files
+  - [x] Dump FLAC files
     - [ ] Upload to webdav server
 
 ### Bugs
 
-
 ### Improvements
-- [ ] The design is super tightly coupled, might be better to make the cdreader and audio player singletons or create a state which allows control
 - [ ] Finish custom BSP that can be build from a single cmd
-- [x] Create AudioSink and AudioSource which have a read and a write function so we can  have multiple sources in the future such as CDPlayer, Bluetooth player, usb player.
+- [ ] Create AudioSink and AudioSource which have a read and a write function so we can  have multiple sources in the future such as CDPlayer, Bluetooth player, usb player.
 AudioSource should also have the ability to get song info, and tracks.

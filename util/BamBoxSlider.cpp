@@ -24,20 +24,41 @@
 
 using bambox::ui::BamBoxSlider;
 
-BamBoxSlider::BamBoxSlider(GtkBuilder* builder, const char* path, OnChangeCB change_cb, OnCommitCB commit_cb, TextGenCB text_gen_cb) :
- BamBoxElement(BamBoxElement::from_builder(builder, path)), change_cb_(change_cb), commit_cb_(commit_cb), text_gen_cb_(text_gen_cb) {
-
-}
+BamBoxSlider::BamBoxSlider(GtkBuilder* builder, const char* path, OnChangeCB change_cb, OnCommitCB commit_cb,
+                           TextGenCB text_gen_cb)
+    : BamBoxElement(BamBoxElement::from_builder(builder, path)),
+      change_cb_(change_cb),
+      commit_cb_(commit_cb),
+      text_gen_cb_(text_gen_cb) {}
 
 void BamBoxSlider::init(int value) {
+  // Ignore if the value is the same
+  if (value == value_) {
+    return;
+  }
   value_ = value;
-  gtk_progress_bar_set_fraction(as_progress_bar(), value_ /100.0);
+  gtk_progress_bar_set_fraction(as_progress_bar(), value_ / 100.0);
   if (text_gen_cb_) {
     gtk_progress_bar_set_text(as_progress_bar(), text_gen_cb_(value_).c_str());
   }
   if (change_cb_) {
     change_cb_(value_);
   }
+}
+
+void BamBoxSlider::init_async(int value) {
+  // Ignore if the value is the same
+  if (value == value_) {
+    return;
+  }
+  value_ = value;
+  auto cb = (GSourceOnceFunc) + [](BamBoxSlider* slider) {
+    gtk_progress_bar_set_fraction(slider->as_progress_bar(), slider->value_ / 100.0);
+    if (slider->text_gen_cb_) {
+      gtk_progress_bar_set_text(slider->as_progress_bar(), slider->text_gen_cb_(slider->value_).c_str());
+    }
+  };
+  g_idle_add_once(cb, this);
 }
 
 void BamBoxSlider::update(int delta) {

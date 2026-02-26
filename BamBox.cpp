@@ -106,6 +106,10 @@ const char* GID_SETTING_OVERLAY_OUTPUT_LIST = "setting-output-overlay-list";
 // Settings - DUMP
 const char* GID_SETTING_OVERLAY_DUMP_CANCEL = "dump-cancel-button";
 const char* GID_SETTING_OVERLAY_DUMP_ACCEPT = "dump-accept-button";
+const char* GID_SETTING_OVERLAY_ALBUM_LABEL = "settings-dump-overlay-title";
+const char* GID_SETTING_OVERLAY_TRACK_LABEL = "settings-dump-overlay-tracks";
+const char* GID_SETTING_OVERLAY_SONG_PROGRESS = "dump-song-progress";
+const char* GID_SETTING_OVERLAY_DISC_PROGRESS = "dump-disc-progress";
 
 // Settings - Volume
 const char* GID_SETTING_OVERLAY_VOLUME_PROGRESS = "setting-volume-progress";
@@ -503,12 +507,19 @@ void BamBox::ui_activate() {
         dump_buttons_.select(0);
         selected_button_ = &dump_buttons_;
         active_overlay_ = settings_dump_overlay_;
+        gtk_label_set_label(dump_album_name_, current_cd_.title_.c_str());
+        gtk_label_set_label(dump_track_count_, std::to_string(current_cd_.songs_.size()).c_str());
+        dump_song_progress_slider_->init(0);
+        dump_disc_progress_slider_->init(0);
         gtk_widget_set_visible(active_overlay_, true);
         gtk_widget_set_opacity(active_overlay_, 1.0);
         ui_push_stack(InputState::BUTTON_GROUP, [this] {
           // Because it lost focus it will no longer be select so re select it.
           selected_button_ = &setting_buttons_;
           setting_buttons_.select(setting_buttons_.get_selected_idx());
+          if (dump_thread_.joinable()) {
+            dump_thread_.join();
+          }
           ui_hide_overlay();
         });
       }));
@@ -554,28 +565,60 @@ void BamBox::ui_activate() {
   settings_about_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_ABOUT));
 
   settings_dump_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_DUMP));
-  dump_buttons_.add_button(std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_CANCEL,
-                                                              [&](auto* gtk_button, auto* button) { ui_pop_stack(); }));
+  dump_album_name_ = GTK_LABEL(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_ALBUM_LABEL));
+  dump_track_count_ = GTK_LABEL(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_TRACK_LABEL));
+  dump_song_progress_slider_ =
+      std::make_shared<ui::BamBoxSlider>(builder, GID_SETTING_OVERLAY_SONG_PROGRESS, nullptr, nullptr, nullptr);
+  dump_disc_progress_slider_ =
+      std::make_shared<ui::BamBoxSlider>(builder, GID_SETTING_OVERLAY_DISC_PROGRESS, nullptr, nullptr, nullptr);
+
+  dump_buttons_.add_button(
+      std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_CANCEL, [&](auto* gtk_button, auto* button) {
+        if (dump_thread_.joinable()) {
+          return;
+        }
+        ui_pop_stack();
+      }));
   dump_buttons_.add_button(
       std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_OVERLAY_DUMP_ACCEPT, [&](auto* gtk_button, auto* button) {
+        if (dump_thread_.joinable()) {
+          return;
+        }
+        dump_thread_ = std::thread([&]() {
+          cd_player_->pause();
+          CdReader::AudioData data;
+          char tmp_path[] = "/tmp/bambox-dump-XXXXXX";
+          mkdtemp(tmp_path);
+          spdlog::info("Dumping album too {}", tmp_path);
+          for (const auto& song : current_cd_.songs_) {
+            dump_disc_progress_slider_->init_async(100.0 * (song.track_num_ - 1.0) / current_cd_.songs_.size());
+            cd_reader_->set_position(song.track_num_);
 
-        cd_player_->pause();
-        CdReader::AudioData data;
-        for (const auto& song : current_cd_.songs_) {
-          cd_reader_->set_position(song.track_num_);
-          FlacWriter writer(fmt::format("tmp/{:02d} - {}.flac", song.track_num_, song.title_), current_cd_, song.track_num_);
-          while (1) {
-              cd_reader_->read(data);
+            FlacWriter writer(fmt::format("{}/{:02d} - {}.flac", tmp_path, song.track_num_, song.title_), current_cd_,
+                              song.track_num_);
+            while (1) {
+              auto res = cd_reader_->read(data);
+              if (res.is_error()) {
+                spdlog::error("Failed to dump with {}", res.str());
+                break;
+              }
               if (data.frames == EOF) {
                 break;
               }
+
               writer.write(data.data.data(), data.frames);
+
+              dump_song_progress_slider_->init_async(100.0 * data.ts.count() / (song.length_.count()));
+            }
+            writer.finish();
           }
-          writer.finish();
-        }
-        cd_reader_->set_position(0);
-        cd_player_->play();
-        ui_pop_stack();
+          cd_reader_->set_position(0);
+          cd_player_->play();
+          spdlog::info("Dumping finished album: {}", tmp_path);
+
+          auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_pop_stack(); };
+          g_idle_add_once(cb, this);
+        });
       }));
 
   settings_volume_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_OVERLAY_VOLUME));

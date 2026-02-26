@@ -69,7 +69,6 @@ class BamBox {
   Error prev();
 
  private:
-
   // UI calls
   void ui_activate();
   void ui_update_track_info();
@@ -188,7 +187,11 @@ class BamBox {
 
   GtkWidget* settings_dump_overlay_{};
   ui::BamBoxButtonGroup dump_buttons_{};
-
+  std::shared_ptr<ui::BamBoxSlider> dump_song_progress_slider_{};
+  std::shared_ptr<ui::BamBoxSlider> dump_disc_progress_slider_{};
+  GtkLabel* dump_album_name_{};
+  GtkLabel* dump_track_count_{};
+  std::thread dump_thread_{};
 
   GtkWidget* settings_volume_overlay_{};
   std::shared_ptr<ui::BamBoxSlider> settings_volume_slider_{};
