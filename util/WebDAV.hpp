@@ -21,56 +21,25 @@
  */
 #pragma once
 
-#include <cstdint>
 #include <string>
-#include <vector>
-#include <memory>
 
 #include "BamBoxError.hpp"
-
+#include "curl/curl.h"
 
 namespace bambox {
+class WebDAV {
+ private:
+  std::string url_;
+  std::string user_;
+  std::string password_;
 
-struct AudioDevCfg {
-  // TODO(qawse3dr) do all configs (format, ...)
-  std::string display_name;
-  std::string device_name;
-  std::string mixer_name;
-  uint8_t volume;
+ public:
+  WebDAV(const std::string& url, const std::string& user, const std::string& password);
+
+  Error create_dir(const std::string& path);
+  Error upload_file(const std::string& remote_path, const std::string& path);
+
+ private:
+  std::string encode_url(const std::string& path);
 };
-
-struct BamBoxConfig {
-  std::string config_path;
-  std::string cd_mount_point;
-  std::string cd_cache;
-  std::vector<AudioDevCfg> audio_devs{};
-  std::string default_audio_dev{};
-  bool dark_mode{};
-
-  uint8_t prev_gpio;
-  uint8_t play_gpio;
-  uint8_t next_gpio;
-
-  struct {
-    uint8_t clk_gpio;
-    uint8_t data_gpio;
-    uint8_t button_gpio;
-
-  } rotary_encoder;
-
-  std::string gtk_ui_path_ = "/ca/larrycloud/bambox/ui/bambox.ui";
-  std::string gtk_style_path_ = "/ca/larrycloud/bambox/ui/bambox.css";
-  std::string gtk_style_light_path_ = "/ca/larrycloud/bambox/ui/bambox_light.css";
-  std::string gtk_style_dark_path_ = "/ca/larrycloud/bambox/ui/bambox_dark.css";
-
-  struct {
-    std::string url;
-    std::string user;
-    std::string pass;
-  } webdav;
-};
-
 }  // namespace bambox
-
-bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]);
-bambox::Error dump_config(const bambox::BamBoxConfig& cfg);

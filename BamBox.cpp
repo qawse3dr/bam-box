@@ -26,6 +26,7 @@
 #include <sys/dcmd_cam.h>
 
 #include <chrono>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -36,6 +37,7 @@
 #include "CdReader.hpp"
 #include "FlacWriter.hpp"
 #include "platform/Gpio.hpp"
+#include "util/WebDAV.hpp"
 
 using bambox::BamBox;
 
@@ -122,7 +124,7 @@ const char* GID_SETTING_OVERLAY_CD_INFO_ALBUM_LENGTH = "cd-info-length";
 const char* GID_SETTING_OVERLAY_CD_INFO_RELEASE_DATE = "cd-info-release-date";
 const char* GID_SETTING_OVERLAY_CD_INFO_ALBUM_ART = "cd-info-album-art";
 
-const char* DEFAULT_IMAGE_PATH = "res/logo.jpg";
+const char* DEFAULT_IMAGE_PATH = "/ca/larrycloud/bambox/ui/res/logo.jpg";
 
 }  // namespace
 
@@ -170,26 +172,41 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
         gtk_stack_set_visible_child_name(bambox->screen_stack_, GID_SCREEN_STACK_MAIN_SCREEN);
       };
       g_timeout_add_once(3000, cb, this);
-      cd_player_->load();
+
+      {
+        // Run in task to avoid circular lock.
+        GTask* task = g_task_new(nullptr, nullptr, nullptr, cd_player_.get());
+        g_task_set_task_data(task, cd_player_.get(), nullptr);
+        g_task_run_in_thread(
+            task, (GTaskThreadFunc) + [](GTask* task, gpointer source_object, bambox::CdPlayer* cd_player,
+                                         GCancellable* cancellable) { cd_player->load(); });
+        g_object_unref(task);
+      }
       break;
     }
     case CdPlayer::Event::CD_EJECTED:
       spdlog::info("cd_event: EJECTED {}", std::get<Error>(data).str());
-
-      // start loader loop?
+      // reset cd
       current_cd_ = CdReader::CD();
       ui_update_track_info();
       ui_update_album_art();
-      cd_player_->load();
-      // reset cd
+      {
+        // Run in task to avoid circular lock.
+        GTask* task = g_task_new(nullptr, nullptr, nullptr, nullptr);
+        g_task_set_task_data(task, cd_player_.get(), nullptr);
+        g_task_run_in_thread(
+            task, (GTaskThreadFunc) + [](GTask* task, gpointer source_object, bambox::CdPlayer* cd_player,
+                                         GCancellable* cancellable) { cd_player->load(); });
+        g_object_unref(task);
+      }
       break;
     case CdPlayer::Event::CD_LOADED:
       spdlog::info("cd_event: LOADED");
       current_cd_ = std::get<CdReader::CD>(data);
-      ui_update_track_info();
-      ui_update_album_art();
       cd_reader_->set_position(1);
       current_song_ = current_cd_.songs_[0];
+      ui_update_track_info();
+      ui_update_album_art();
       cd_player_->play();
       spdlog::info("cd_event: LOADED END");
       break;
@@ -200,6 +217,7 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
       if (track_num > current_cd_.songs_.size()) {
         track_num = 1;
       }
+      current_song_ = current_cd_.songs_[track_num];
       auto res = cd_reader_->set_position(track_num);
       ui_update_track_info();
       break;
@@ -544,7 +562,7 @@ void BamBox::ui_activate() {
         if (!current_cd_.album_art_path_.empty()) {
           gtk_image_set_from_file(cd_info_album_art_, current_cd_.album_art_path_.c_str());
         } else {
-          gtk_image_set_from_resource(cd_info_album_art_, "/ca/larrycloud/bambox/icons/48x48/actions/logo.jpg");
+          gtk_image_set_from_resource(cd_info_album_art_, DEFAULT_IMAGE_PATH);
         }
         ui_show_overlay(settings_cd_info_overlay_, InputState::INFO);
       }));
@@ -585,6 +603,14 @@ void BamBox::ui_activate() {
           return;
         }
         dump_thread_ = std::thread([&]() {
+          std::chrono::seconds prev_sec(1000000000);
+
+          // Create the directories needed to upload the files
+          WebDAV webDAV(cfg_.webdav.url, cfg_.webdav.user, cfg_.webdav.pass);
+          webDAV.create_dir(current_cd_.artist_.c_str());
+          std::string upload_folder = fmt::format("{}/{}", current_cd_.artist_, current_cd_.title_);
+          webDAV.create_dir(upload_folder.c_str());
+
           cd_player_->pause();
           CdReader::AudioData data;
           char tmp_path[] = "/tmp/bambox-dump-XXXXXX";
@@ -594,8 +620,9 @@ void BamBox::ui_activate() {
             dump_disc_progress_slider_->init_async(100.0 * (song.track_num_ - 1.0) / current_cd_.songs_.size());
             cd_reader_->set_position(song.track_num_);
 
-            FlacWriter writer(fmt::format("{}/{:02d} - {}.flac", tmp_path, song.track_num_, song.title_), current_cd_,
-                              song.track_num_);
+            std::string filename = fmt::format("{:02d} - {}.flac", song.track_num_, song.title_);
+            std::string file_path = fmt::format("{}/{}", tmp_path, filename);
+            FlacWriter writer(file_path, current_cd_, song.track_num_);
             while (1) {
               auto res = cd_reader_->read(data);
               if (res.is_error()) {
@@ -607,15 +634,19 @@ void BamBox::ui_activate() {
               }
 
               writer.write(data.data.data(), data.frames);
-
-              dump_song_progress_slider_->init_async(100.0 * data.ts.count() / (song.length_.count()));
+              if (data.ts != prev_sec) {
+                prev_sec = data.ts;
+                dump_song_progress_slider_->init_async(100.0 * data.ts.count() / (song.length_.count()));
+              }
             }
             writer.finish();
+            webDAV.upload_file(upload_folder + "/" + filename, file_path);
           }
           cd_reader_->set_position(0);
           cd_player_->play();
           spdlog::info("Dumping finished album: {}", tmp_path);
 
+          std::filesystem::remove_all(tmp_path);
           auto cb = (GSourceOnceFunc) + [](BamBox* bambox) { bambox->ui_pop_stack(); };
           g_idle_add_once(cb, this);
         });
@@ -665,11 +696,11 @@ void BamBox::ui_activate() {
 
 void BamBox::ui_update_album_art() {
   auto cb = (GSourceOnceFunc)(+[](BamBox* bambox) {
-    std::string art = DEFAULT_IMAGE_PATH;  // TODO change to resource
     if (!bambox->current_cd_.album_art_path_.empty()) {
-      art = bambox->current_cd_.album_art_path_;
+      gtk_image_set_from_file(bambox->album_art_, bambox->current_cd_.album_art_path_.c_str());
+    } else {
+      gtk_image_set_from_resource(bambox->album_art_, DEFAULT_IMAGE_PATH);
     }
-    gtk_image_set_from_file(bambox->album_art_, art.c_str());
   });
 
   g_idle_add_once(cb, this);

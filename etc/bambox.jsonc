@@ -46,5 +46,8 @@
       "data": 3,
       "push": 2
     }
-  }
+  },
+  "webdav_url": "https://example.com/remote.php/dav/files/user/tmp",
+  "webdav_username": "example",
+  "webdav_password": "example"
 }

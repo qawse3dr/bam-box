@@ -52,6 +52,10 @@ static bambox::Error parse_config(bambox::BamBoxConfig& config, const char* conf
     config.cd_cache = config_json.at("cd_cache");
     config.dark_mode = config_json.at("dark_mode");
     config.default_audio_dev = config_json.at("audio_dev_default");
+    config.webdav.url = config_json.at("webdav_url");
+    config.webdav.user = config_json.at("webdav_username");
+    config.webdav.pass = config_json.at("webdav_password");
+
     const auto& gpio = config_json.at("gpio");
     config.prev_gpio = gpio.at("prev");
     config.next_gpio = gpio.at("next");
@@ -150,6 +154,9 @@ bambox::Error dump_config(const bambox::BamBoxConfig& cfg) {
   cfg_json["cd_mount"] = cfg.cd_mount_point;
   cfg_json["cd_cache"] = cfg.cd_cache;
   cfg_json["dark_mode"] = cfg.dark_mode;
+  cfg_json["webdav_url"] = cfg.webdav.url;
+  cfg_json["webdav_username"] = cfg.webdav.user;
+  cfg_json["webdav_password"] = cfg.webdav.pass;
   cfg_json["audio_dev_default"] = cfg.default_audio_dev;
   cfg_json["gpio"] = nlohmann::json::object();
   cfg_json["gpio"]["prev"] = cfg.prev_gpio;

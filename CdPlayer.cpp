@@ -29,8 +29,7 @@ using bambox::Error;
 
 CdPlayer::CdPlayer(const std::shared_ptr<CdReader>& reader, std::shared_ptr<AudioPlayer>& audio_player,
                    EventCB event_cb)
-    : reader_(reader), audio_player_(audio_player), event_cb_(event_cb) {
-}
+    : reader_(reader), audio_player_(audio_player), event_cb_(event_cb) {}
 
 Error CdPlayer::start() {
   cd_loader_loop_ = std::thread(&CdPlayer::cd_loader_loop, this);
@@ -56,6 +55,10 @@ Error CdPlayer::play() {
     spdlog::info("CdPlayer::play err()");
 
     return {ECode::ERR_INVAL_STATE, "CdPlayer cannot be started, already running"};
+  }
+  // Clean up any old threads.
+  if (cd_reader_loop_.joinable()) {
+    cd_reader_loop_.join();
   }
   state_ = State::PLAYING;
   cd_reader_loop_ = std::thread(&CdPlayer::cd_reader_loop, this);
@@ -85,24 +88,28 @@ void CdPlayer::cd_reader_loop() {
   Error err{};
   while (1) {
     // Lock when reading from the cd player to avoid threading issues.
-    {
+    for (int i = 0; i < 5; i++) {
       std::lock_guard<std::mutex> lk(mtx_);
       // Stop requested.
       if (state_ == State::STOPPING) {
         return;
       }
       err = reader_->read(data);
+      if (err.is_ok()) {
+        break;
+      }
     }
     // No read the message outside of the lock checking the contents for any callbacks.
 
     if (data.frames == EOF) {
-      // notify the track ended but keep reading, this assums that the event_cb_ will update the reader
+      // notify the track ended but keep reading, this assumes that the event_cb_ will update the reader
       EventData event_data(0);
       event_cb_(Event::CD_TRACK_ENDED, event_data);
       continue;
     }
 
     if (err.is_error()) {
+      state_ = State::STOPPED;
       EventData event_data(err);
       event_cb_(Event::CD_EJECTED, event_data);
       return;

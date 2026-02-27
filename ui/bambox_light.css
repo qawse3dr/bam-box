@@ -41,7 +41,7 @@ progressbar text {
 }
 
 .overlay-label {
-  color: white;
+  color: black;
 }
 
 .menu-button {
@@ -53,8 +53,18 @@ progressbar text {
   background-color: #e03a30;
 }
 
+.box-button {
+  background-color: #ff4539;
+}
+
+.box-button:hover {
+  border-color: black;
+  background-color: #e03a30;
+}
+
+
 .overlay {
-  background-color: #ff1000;
+  background-color: #D3D3D3;
   border-color: black;
 }
 

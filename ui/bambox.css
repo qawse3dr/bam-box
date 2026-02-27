@@ -53,6 +53,13 @@ label {
   border-radius: 0px;
 }
 
+.box-button:hover {
+  border-width: 0px;
+  background-image: none;
+  box-shadow: none;
+  border-radius: 0px;
+}
+
 .menu-button:hover {
   border-style: solid;
   background-image: none;
@@ -91,5 +98,5 @@ trough {
 }
 
 .progress-text {
-	font-size:16px;
+	font-size:24px;
 }

@@ -32,10 +32,6 @@ BamBoxSlider::BamBoxSlider(GtkBuilder* builder, const char* path, OnChangeCB cha
       text_gen_cb_(text_gen_cb) {}
 
 void BamBoxSlider::init(int value) {
-  // Ignore if the value is the same
-  if (value == value_) {
-    return;
-  }
   value_ = value;
   gtk_progress_bar_set_fraction(as_progress_bar(), value_ / 100.0);
   if (text_gen_cb_) {
@@ -47,10 +43,6 @@ void BamBoxSlider::init(int value) {
 }
 
 void BamBoxSlider::init_async(int value) {
-  // Ignore if the value is the same
-  if (value == value_) {
-    return;
-  }
   value_ = value;
   auto cb = (GSourceOnceFunc) + [](BamBoxSlider* slider) {
     gtk_progress_bar_set_fraction(slider->as_progress_bar(), slider->value_ / 100.0);
