@@ -154,7 +154,6 @@ int AudioPlayer::write(void *data, int frames) {
   if (current_dev_ == nullptr) {
     return -1;
   }
-  // TODO this may return the amount written.
   auto ret = snd_pcm_writei(current_dev_->handle, data, frames);
 
   // This is a workaround for being paused.

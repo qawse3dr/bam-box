@@ -36,7 +36,7 @@
     }
     // TODO USB
   },
-  "audio_dev_default": "Speakers", // Which 
+  "audio_dev_default": "Speakers", 
   "gpio": {
     "prev": 16,
     "play": 24,

@@ -220,7 +220,7 @@ bambox::Error CdReader::eject() {
 typedef union {
   cdrom_raw_read_t read;
   uint8_t data[READ_SIZE];
-} raw_read_reqest_t;
+} raw_read_request_t;
 
 bambox::Error CdReader::read(CdReader::AudioData &audio) {
   if (handle_ == -1) {
@@ -233,17 +233,17 @@ bambox::Error CdReader::read(CdReader::AudioData &audio) {
     return {};
   }
 
-  raw_read_reqest_t req = {.read = {.lba = track_lba_current_, .nsectors = 1, .est = CDROM_EST_CDDA}};
+  raw_read_request_t req = {.read = {.lba = track_lba_current_, .nsectors = 1, .est = CDROM_EST_CDDA}};
   int ret = devctl(handle_, DCMD_CAM_CDROMREAD, &req, sizeof(req), NULL);
   if (ret != 0) {
-    return {bambox::ECode::ERR_IO, "Failed to read cd", ret};
+    return {bambox::ECode::ERR_IO, "Failed to read CD", ret};
   }
 
   audio.ts = std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) +
              std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_));
   memcpy(audio.data.data(), req.data, sizeof(req.data));
   audio.frames = CDROM_CDDA_FRAME_SIZE / 4;
-  track_lba_current_ ++;
+  track_lba_current_++;
   return {};
 }
 
@@ -255,7 +255,7 @@ bambox::Error CdReader::wait_for_disc() {
 }
 bool CdReader::has_disc() { return 0 == access(mount_point_.c_str(), R_OK); }
 
-static DiscId *create_disc_id_from_toc(const bambox::CdReader::CD& cd) {
+static DiscId *create_disc_id_from_toc(const bambox::CdReader::CD &cd) {
   if (cd.songs_.size() == 0) {
     return NULL;
   }

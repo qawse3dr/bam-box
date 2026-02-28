@@ -271,7 +271,6 @@ void LcdDisplay::display_loop() {
     // Write screen buffer to display.
     gpio_->level_set(LCD_DC, true);
     for (int i = 0; i < LCD_HEIGHT; i++) {
-      // write(spi_dev_, screen_pix_ptr + LCD_WIDTH * 2 * i, LCD_WIDTH * 2);
       write(spi_dev_, screen_buf[i], LCD_WIDTH * 2);
     }
     gpio_->level_set(LCD_DC, false);

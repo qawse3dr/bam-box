@@ -693,8 +693,11 @@
                         </child>
                         <child>
                           <object class="GtkLabel" id="settings-dump-overlay-title">
+                            <property name="ellipsize">end</property>
                             <property name="halign">end</property>
                             <property name="hexpand">True</property>
+                            <property name="max-width-chars">20</property>
+                            <property name="width-chars">20</property>
                           </object>
                         </child>
                       </object>
