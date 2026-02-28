@@ -11,14 +11,15 @@ Bam box is a CD player and ripper created from a RPI4 running QNX 8.0. It is mad
 
 ![Bam Box Internals](./images/internal.jpg)
 
+![Bam Box Circut](./images/bambox_circuit.png)
 
 ## Hardware
 | Component       | Parts                                                                                                                                               |
 |-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | Board           | RPI4                                                                                                                                                |
 | OS              | QNX 8.0 CTI image                                                                                                                                   |
-| Amplifier       | MAX104-HW (generic component)                                                                                                                       |
-| Audio DAC       | [PCM5102](https://www.adafruit.com/product/6250) (I didn't use wave share but this should work fine not this is a line out not a headphone out :) ) |
+| Amplifier       | [104-HW (PAM8403)](https://www.amazon.ca/HiLetgo-PAM8403-Digital-Amplifier-2-5-5V/dp/B00LODGV64)                                                                                                                       |
+| Audio DAC       | [PCM5102](https://www.adafruit.com/product/6250) (I didn't use adafruit but this should work fine. WARNING the jack is line out not headphone out :) ) |
 | Speakers        | [Gikfun 2 inch 4Ohm 3W](https://gikfun.com/products/gikfun-2-4ohm-3w-full-range-audio-speaker-stereo-woofer-loudspeaker-for-arduino-pack-of-2pcs)   |
 | LCD             | [Waveshare 2inch SPI LCD Module](https://www.pishop.ca/product/240x320-general-2inch-ips-lcd-display-module)                                        |
 | Powered USB Hub | [ICAN 5 port power hub](https://www.canadacomputers.com/en/usb-hubs/260489/ican-5-port-usb-3-0-hub-with-12v-2a-power-adapter-rsh-a35.html)          |
