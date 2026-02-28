@@ -136,6 +136,66 @@ export GSK_RENDERER=gl
   - [x] Dump FLAC files
     - [x] Upload to webdav server
 
+### Architecture
+
+#### Display
+The LCD uses a virtual screen to receive data rendered from GTK4, which is then written to the screen over SPI. The DC pin is used to indicate whether the data being sent is a command or display data. The flow looks like this:
+```mermaid 
+%%{init: { 'theme':'dark', 'sequence': {'useMaxWidth':false} } }%%
+sequenceDiagram
+  participant BamBox
+  participant GTK4
+  participant /dev/screen
+  participant SPI_LCD as SPI LCD
+
+  BamBox ->> SPI_LCD: Setup Commands
+  BamBox ->> /dev/screen: Open frame buffer
+
+  loop Render Loop
+    BamBox ->> GTK4: Draw UI
+    GTK4 ->> /dev/screen: Render to virtual display
+    /dev/screen ->> BamBox: screen_read_display()
+    BamBox ->> SPI_LCD: DC(1)
+    activate SPI_LCD
+    BamBox ->> SPI_LCD: write()
+    BamBox ->> SPI_LCD: DC(0)
+    deactivate SPI_LCD
+  end
+```
+In this sequence, GTK4 renders the interface to a virtual display device. BamBox reads the rendered frame and sends it over SPI to the LCD, using the DC pin to differentiate between commands and pixel data.
+
+#### CD and Audio path
+
+```mermaid
+%%{init: { 'theme':'dark', 'sequence': {'useMaxWidth':false} } }%%
+sequenceDiagram
+  participant BamBox
+  participant CD_Player as CD Player
+  participant CD_Reader as CD Reader
+  participant Audio_Player as Audio Player
+  participant MusicBrainz
+
+  BamBox ->> CD_Player: Load
+  activate CD_Player
+  CD_Player ->> CD_Reader: load disc
+  activate CD_Reader
+  CD_Reader ->> CD_Reader: calculate discid
+  CD_Reader ->> MusicBrainz: fetch metadata and album art
+  deactivate CD_Reader
+  CD_Player ->> BamBox: Disc loaded callback
+  deactivate CD_Player
+
+  BamBox ->> CD_Player: play track 1
+  activate CD_Player
+  CD_Player ->> CD_Reader: read track data
+  activate CD_Reader
+  CD_Reader ->> Audio_Player: write PCM data
+  activate Audio_Player
+  deactivate Audio_Player
+  deactivate CD_Reader
+  deactivate CD_Player
+```
+
 ### Improvements
 - [ ] Finish custom BSP that can be build from a single cmd
 - [ ] Create AudioSink and AudioSource which have a read and a write function so we can  have multiple sources in the future such as CDPlayer, Bluetooth player, usb player.
