@@ -177,22 +177,24 @@ sequenceDiagram
 
   BamBox ->> CD_Player: Load
   activate CD_Player
-  CD_Player ->> CD_Reader: load disc
+  CD_Player ->> CD_Reader: Load disc
   activate CD_Reader
-  CD_Reader ->> CD_Reader: calculate discid
-  CD_Reader ->> MusicBrainz: fetch metadata and album art
+  CD_Reader ->> CD_Reader: Calculate discid
+  CD_Reader ->> MusicBrainz: Fetch metadata and album art
   deactivate CD_Reader
   CD_Player ->> BamBox: Disc loaded callback
   deactivate CD_Player
 
-  BamBox ->> CD_Player: play track 1
+  BamBox ->> CD_Player: Play track 1
   activate CD_Player
-  CD_Player ->> CD_Reader: read track data
-  activate CD_Reader
-  CD_Reader ->> Audio_Player: write PCM data
-  activate Audio_Player
-  deactivate Audio_Player
-  deactivate CD_Reader
+  loop Playback Loop
+    CD_Player ->> CD_Reader: Read track data
+    activate CD_Reader
+    CD_Reader ->> Audio_Player: Write PCM data
+    activate Audio_Player
+    deactivate Audio_Player
+    deactivate CD_Reader
+  end
   deactivate CD_Player
 ```
 

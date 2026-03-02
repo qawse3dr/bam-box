@@ -6,7 +6,7 @@
   <css filename="bambox.css" is_global="1"/>
   <css filename="bambox_light.css" is_global="0"/>
   <css filename="bambox_dark.css" is_global="1"/>
-  <ui filename="bambox.ui" sha256="326acd096226b6d4a6507125c6a1ae6374ecc3845811367f2afde76cf6ce80e2">
+  <ui filename="bambox.ui" sha256="12c3e221cb754554f05f04548107fb92a115a99bbbc1d6fea72c7f3655e62068">
     <css-provider>bambox.css</css-provider>
     <css-provider>bambox_dark.css</css-provider>
   </ui>

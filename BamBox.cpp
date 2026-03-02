@@ -217,7 +217,7 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
       if (track_num > current_cd_.songs_.size()) {
         track_num = 1;
       }
-      current_song_ = current_cd_.songs_[track_num];
+      current_song_ = current_cd_.songs_[track_num - 1];
       auto res = cd_reader_->set_position(track_num);
       ui_update_track_info();
       break;

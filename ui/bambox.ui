@@ -674,7 +674,7 @@
                     <child>
                       <object class="GtkLabel">
                         <property name="css-classes">overlay-label</property>
-                        <property name="label">Backup CD To Cloud</property>
+                        <property name="label">Backup CD to Cloud</property>
                       </object>
                     </child>
                     <child>
