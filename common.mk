@@ -5,7 +5,7 @@ include $(QCONFIG)
 
 NAME=bam-box
 
-INSTALLDIR=usr/local/lib
+INSTALLDIR=usr/local/bin
 
 CFLAGS=-std=c++20 -Wall -Werror
 LIBS+=asound spdlog socket screen discid curl
