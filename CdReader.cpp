@@ -297,7 +297,6 @@ std::string CdReader::get_freedb_id(const CD &cd) {
   return id;
 }
 
-// TODO this should be moved outside of the cd class?
 bambox::Error CdReader::update_disc_info() {
   if (handle_ < 0) {
     return {ECode::ERR_INVAL_STATE, "CD not loaded can't pull cd info."};
