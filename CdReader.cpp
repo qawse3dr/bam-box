@@ -41,7 +41,7 @@
 
 using bambox::CdReader;
 
-CdReader::CdReader(const std::string &cd_dev) : mount_point_(cd_dev) {}
+CdReader::CdReader(const bambox::BamBoxConfig &cfg) : cfg_(cfg), mount_point_(cfg.cd_mount_point) {}
 CdReader::~CdReader() {
   if (handle_ != -1) {
     close(handle_);
@@ -305,7 +305,7 @@ bambox::Error CdReader::update_disc_info() {
   // TODO move this to a separate thread
   std::string json_val = "";
   auto disc_id = get_disc_id(current_cd_);
-  auto cached_path = "bambox-info/" + disc_id + ".json";
+  auto cached_path = cfg_.cd_cache + "/" + disc_id + ".json";
   if (std::filesystem::exists(cached_path)) {
     // Info already cached TODO(qawse3dr) we probably want a sqlite3 server for this instead of saving all
     // the json as it will take up a bunch of space we really don't need it to.
@@ -359,7 +359,7 @@ bambox::Error CdReader::update_disc_info() {
 
   // Pull album art if it doesn't exist
   if (!current_cd_.release_id_.empty()) {
-    current_cd_.album_art_path_ = "bambox-info/" + current_cd_.release_id_ + ".jpg";
+    current_cd_.album_art_path_ = cfg_.cd_cache + "/" + current_cd_.release_id_ + ".jpg";
     if (!std::filesystem::exists(current_cd_.album_art_path_)) {
       CURLcode curl_res = CURLE_AGAIN;
       std::string album_art_url = "http://coverartarchive.org/release/" + current_cd_.release_id_ + "/front-250";

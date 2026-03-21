@@ -134,7 +134,7 @@ BamBox::~BamBox() {}
 bambox::Error BamBox::config(BamBoxConfig&& cfg) {
   spdlog::info("Configuring...");
   cfg_ = std::move(cfg);
-  cd_reader_ = std::make_shared<CdReader>(cfg_.cd_mount_point);
+  cd_reader_ = std::make_shared<CdReader>(cfg_);
   audio_player_ = std::make_shared<AudioPlayer>();
   cd_player_ = std::make_unique<CdPlayer>(
       cd_reader_, audio_player_,
