@@ -208,10 +208,10 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
       ui_update_track_info();
       ui_update_album_art();
       cd_player_->play();
-      spdlog::info("cd_event: LOADED END");
+      spdlog::trace("cd_event: LOADED END");
       break;
     case CdPlayer::Event::CD_TRACK_ENDED: {
-      spdlog::info("cd_event: TRACK_ENDED");
+      spdlog::trace("cd_event: TRACK_ENDED");
 
       auto track_num = (current_song_.track_num_ + 1);
       if (track_num > current_cd_.songs_.size()) {
@@ -223,7 +223,6 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
       break;
     }
     case CdPlayer::Event::CD_TIME_UPDATE:
-      spdlog::info("cd_event: TIME_UPDATE");
       ui_update_track_time(std::get<std::chrono::seconds>(data));
       break;
   }

@@ -78,9 +78,9 @@ class CdReader {
   };
 
  private:
+ BamBoxConfig cfg_{};
   std::string mount_point_;
   CD current_cd_{};
-  BamBoxConfig cfg_{};
   int handle_ = -1;
 
   // The LBA info of a track.

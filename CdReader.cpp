@@ -107,17 +107,33 @@ bambox::Error CdReader::load() {
     Song song;
     song.start_lba_ = toc_data.toc_entry[i - 1].addr.lba;
     song.track_num_ = toc_data.toc_entry[i - 1].track_number;
+    uint8_t adr = (toc_data.toc_entry[i - 1].control_adr >> 4) & 0x0F;
+    uint8_t control = toc_data.toc_entry[i - 1].control_adr & 0x0F;
     if (!cd.songs_.empty()) {
       cd.songs_.back().end_lba_ = song.start_lba_ - 1;
     }
+
+    if (control == 4) { // 4 is considered a data tracks
+      spdlog::info("has data track... skipping");
+      spdlog::info("data_track {} toc= {} control={}, addr={}", i, song.start_lba_, control, adr);
+      continue;
+    }
     cd.songs_.push_back(song);
 
-    spdlog::info("track {} toc= {}", i, song.start_lba_);
+    spdlog::info("track {} toc= {} control={}, addr={}", i, song.start_lba_, control, adr);
   }
 
-  // The last track ends at the last sector
-  cd.songs_.back().end_lba_ = info.num_sctrs;
-  cd.lout_track_lba_ = toc_data.toc_entry[toc_data.last_track].addr.lba;
+  cd.lout_track_lba_ = toc_data.toc_entry[cd.songs_.size()].addr.lba;
+  if (cd.songs_.size() != toc_data.last_track) {
+    // data track add gap for session
+    cd.lout_track_lba_ -= 11400;
+    
+    // The last track end_lba is set because we have data tracks.
+  } else {  // Normal case no data track
+    // The last track ends at the last sector
+    cd.songs_.back().end_lba_ = info.num_sctrs;
+  }
+  spdlog::info("track lout {}", cd.lout_track_lba_);
 
   // Read the CD Text if it exists
   cdrom_cd_text_t cd_text = {};
@@ -263,7 +279,10 @@ static DiscId *create_disc_id_from_toc(const bambox::CdReader::CD &cd) {
   int offsets[cd.songs_.size() + 1];
 
   offsets[0] = cd.lout_track_lba_ + 150;
+  spdlog::info("0={}", cd.lout_track_lba_ + 150);
+
   for (auto &song : cd.songs_) {
+    spdlog::info("{}={}", song.track_num_, song.start_lba_);
     offsets[song.track_num_] = song.start_lba_ + 150;
   }
   bool success = discid_put(disc, cd.songs_.front().track_num_, cd.songs_.back().track_num_, offsets);
@@ -325,7 +344,7 @@ bambox::Error CdReader::update_disc_info() {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discid_url_write_ftn);
     CURLcode curl_res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
-    spdlog::info("update_disc_info discid curl_res={}", curl_easy_strerror(curl_res));
+    spdlog::info("update_disc_info discid={} curl_res={}", disc_id, curl_easy_strerror(curl_res));
   }
 
   try {
