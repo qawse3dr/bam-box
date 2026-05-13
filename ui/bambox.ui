@@ -29,7 +29,7 @@
                 <property name="height-request">480</property>
                 <property name="icon-size">large</property>
                 <property name="pixel-size">320</property>
-                <property name="resource">/ca/larrycloud/bambox/ui/res/logo.jpg</property>
+                <property name="resource">/ca/larrycloud/bambox/ui/res/logo.png</property>
                 <property name="valign">center</property>
                 <property name="width-request">640</property>
               </object>
@@ -126,7 +126,7 @@
                         <property name="margin-start">32</property>
                         <property name="margin-top">10</property>
                         <property name="pixel-size">250</property>
-                        <property name="resource">/ca/larrycloud/bambox/ui/res/logo.jpg</property>
+                        <property name="resource">/ca/larrycloud/bambox/ui/res/logo.png</property>
                         <property name="valign">center</property>
                       </object>
                     </child>
@@ -872,7 +872,7 @@
                     </child>
                     <child>
                       <object class="GtkImage" id="cd-info-album-art">
-                        <property name="file">res/logo.jpg</property>
+                        <property name="file">res/logo.png</property>
                         <property name="icon-size">large</property>
                         <property name="margin-top">10</property>
                         <property name="pixel-size">200</property>

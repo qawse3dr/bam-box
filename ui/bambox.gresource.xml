@@ -4,7 +4,7 @@
   <gresource prefix="/ca/larrycloud/bambox/ui/">
     <file>bambox.css</file>
     <file>bambox.ui</file>
-    <file>res/logo.jpg</file>
+    <file>res/logo.png</file>
     <file>bambox_light.css</file>
     <file>bambox_dark.css</file>
   </gresource>

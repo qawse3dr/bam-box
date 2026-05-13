@@ -124,7 +124,7 @@ const char* GID_SETTING_OVERLAY_CD_INFO_ALBUM_LENGTH = "cd-info-length";
 const char* GID_SETTING_OVERLAY_CD_INFO_RELEASE_DATE = "cd-info-release-date";
 const char* GID_SETTING_OVERLAY_CD_INFO_ALBUM_ART = "cd-info-album-art";
 
-const char* DEFAULT_IMAGE_PATH = "/ca/larrycloud/bambox/ui/res/logo.jpg";
+const char* DEFAULT_IMAGE_PATH = "/ca/larrycloud/bambox/ui/res/logo.png";
 
 }  // namespace
 
