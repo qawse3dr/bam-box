@@ -15,7 +15,7 @@ Bam box is a CD player and ripper created from a RPI4 running QNX 8.0. It is mad
 
 ## Hardware
 | Component       | Parts                                                                                                                                                  |
-|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Board           | RPI4                                                                                                                                                   |
 | OS              | QNX 8.0 CTI image                                                                                                                                      |
 | Amplifier       | [104-HW (PAM8403)](https://www.amazon.ca/HiLetgo-PAM8403-Digital-Amplifier-2-5-5V/dp/B00LODGV64)                                                       |
@@ -145,16 +145,16 @@ The LCD uses a virtual screen to receive data rendered from GTK4, which is then 
 sequenceDiagram
   participant BamBox
   participant GTK4
-  participant /dev/screen
+  participant screen
   participant SPI_LCD as SPI LCD
 
   BamBox ->> SPI_LCD: Setup Commands
-  BamBox ->> /dev/screen: Open frame buffer
+  BamBox ->> screen: Open frame buffer
 
   loop Render Loop
     BamBox ->> GTK4: Draw UI
-    GTK4 ->> /dev/screen: Render to virtual display
-    /dev/screen ->> BamBox: screen_read_display()
+    GTK4 ->> screen: Render to virtual display
+    screen ->> BamBox: screen_read_display()
     BamBox ->> SPI_LCD: DC(1)
     activate SPI_LCD
     BamBox ->> SPI_LCD: write()
