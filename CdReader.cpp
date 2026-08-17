@@ -30,6 +30,7 @@
 #include <sys/dcmd_cam.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -41,6 +42,13 @@
 
 using bambox::CdReader;
 
+/// Sectors in a second of CD audio.
+#define SECTORS_PER_SEC 75
+
+/// Lead-out + lead-in burned between the audio session and a following data
+/// session on an enhanced CD.
+#define SESSION_GAP_SECTORS 11400
+
 CdReader::CdReader(const bambox::BamBoxConfig &cfg) : cfg_(cfg), mount_point_(cfg.cd_mount_point) {}
 CdReader::~CdReader() {
   if (handle_ != -1) {
@@ -48,11 +56,10 @@ CdReader::~CdReader() {
   }
 }
 
-static std::vector<std::string> cd_pkt_reader(char pkt_data[12]) {
+static std::vector<std::string> cd_pkt_reader(const char pkt_data[CDROM_DATA_SIZE]) {
   int i = 0;
-  char data[13] = "d";
   std::vector<std::string> values;
-  while (i < 12) {
+  while (i < CDROM_DATA_SIZE) {
     // If we ever find a blank record it means that it is Untitled so skip over
     // it and put a placeholder value.
     if (pkt_data[i] == '\0') {
@@ -61,14 +68,16 @@ static std::vector<std::string> cd_pkt_reader(char pkt_data[12]) {
       continue;
     }
 
-    strlcpy(data, pkt_data + i, sizeof(data) - i);
+    // The pack payload is a fixed 12 byte field and is not guaranteed to be
+    // terminated, so never walk past the end of it looking for a NUL.
     values.push_back("");
-    for (char *s = data; *s != '\0'; s++) {
-      if (isprint(*s)) {
-        values.back() += *s;
+    while (i < CDROM_DATA_SIZE && pkt_data[i] != '\0') {
+      if (isprint(static_cast<unsigned char>(pkt_data[i]))) {
+        values.back() += pkt_data[i];
       }
+      i++;
     }
-    i += strlen(data) + 1;
+    i++;  // step over the terminator (or past the end, ending the loop)
   }
   return values;
 }
@@ -103,36 +112,57 @@ bambox::Error CdReader::load() {
     return {ECode::ERR_IO, "Failed to get TOC from CD"};
   }
 
-  for (int i = toc_data.first_track; i <= toc_data.last_track; i++) {
-    Song song;
-    song.start_lba_ = toc_data.toc_entry[i - 1].addr.lba;
-    song.track_num_ = toc_data.toc_entry[i - 1].track_number;
-    uint8_t adr = (toc_data.toc_entry[i - 1].control_adr >> 4) & 0x0F;
-    uint8_t control = toc_data.toc_entry[i - 1].control_adr & 0x0F;
-    if (!cd.songs_.empty()) {
-      cd.songs_.back().end_lba_ = song.start_lba_ - 1;
+  if (toc_data.last_track < toc_data.first_track || toc_data.last_track >= CDROM_MAX_TRACKS) {
+    return {ECode::ERR_IO, fmt::format("CD reported a bogus TOC (first={} last={})", toc_data.first_track,
+                                       toc_data.last_track)};
+  }
+  const int ntracks = toc_data.last_track - toc_data.first_track + 1;
+
+  // The driver stores the lead-out descriptor immediately after the last track.
+  const uint64_t leadout_lba = toc_data.toc_entry[ntracks].addr.lba;
+
+  for (int i = 0; i < ntracks; i++) {
+    const cdrom_tocentry_t &entry = toc_data.toc_entry[i];
+    const uint8_t adr = (entry.control_adr >> 4) & 0x0F;
+    const uint8_t control = entry.control_adr & 0x0F;
+    const uint64_t start_lba = entry.addr.lba;
+    const bool is_data = (control & CDROM_DATA_TRACK) != 0;  // bit 2 marks a data track
+
+    // Every descriptor (audio or data) bounds the previous audio track. A data track
+    // belongs to a later session, so the audio ends a session gap before it starts.
+    if (!cd.songs_.empty() && cd.songs_.back().end_lba_ == 0) {
+      uint64_t boundary = start_lba;
+      if (is_data && boundary > SESSION_GAP_SECTORS) {
+        boundary -= SESSION_GAP_SECTORS;
+      }
+      cd.songs_.back().end_lba_ = boundary - 1;
     }
 
-    if (control == 4) { // 4 is considered a data tracks
-      spdlog::info("has data track... skipping");
-      spdlog::info("data_track {} toc= {} control={}, addr={}", i, song.start_lba_, control, adr);
+    if (is_data) {
+      spdlog::info("data_track {} toc= {} control={}, addr={}... skipping", entry.track_number, start_lba, control,
+                   adr);
       continue;
     }
+
+    Song song;
+    song.start_lba_ = start_lba;
+    song.track_num_ = entry.track_number;
     cd.songs_.push_back(song);
 
-    spdlog::info("track {} toc= {} control={}, addr={}", i, song.start_lba_, control, adr);
+    spdlog::info("track {} toc= {} control={}, addr={}", entry.track_number, start_lba, control, adr);
   }
 
-  cd.lout_track_lba_ = toc_data.toc_entry[cd.songs_.size()].addr.lba;
-  if (cd.songs_.size() != toc_data.last_track) {
-    // data track add gap for session
-    cd.lout_track_lba_ -= 11400;
-    
-    // The last track end_lba is set because we have data tracks.
-  } else {  // Normal case no data track
-    // The last track ends at the last sector
-    cd.songs_.back().end_lba_ = info.num_sctrs;
+  if (cd.songs_.empty()) {
+    return {ECode::ERR_NO_DATA, "No audio tracks on this disc"};
   }
+
+  // Nothing followed the last audio track, so it runs up to the lead-out.
+  if (cd.songs_.back().end_lba_ == 0) {
+    cd.songs_.back().end_lba_ = leadout_lba - 1;
+  }
+  // The audio session ends one sector after the last audio track; that is the
+  // lead-out MusicBrainz/freedb want when hashing the disc.
+  cd.lout_track_lba_ = cd.songs_.back().end_lba_ + 1;
   spdlog::info("track lout {}", cd.lout_track_lba_);
 
   // Read the CD Text if it exists
@@ -141,11 +171,13 @@ bambox::Error CdReader::load() {
   if (ret != 0) {
     return {ECode::ERR_IO, "Failed to get CD Text from CD"};
   }
-  if (cd_text.npacks != 0) {
+  // npacks comes off the disc, don't trust it to be within the array.
+  const int npacks = std::min<int>(cd_text.npacks, CDROM_MAX_TEXT);
+  if (npacks != 0) {
     cd.title_ = "";
     cd.artist_ = "";
   }
-  for (int i = 0; i < cd_text.npacks; i++) {
+  for (int i = 0; i < npacks; i++) {
     cdrom_datapack_t pkt = cd_text.packs[i];
 
     switch (pkt.pack_type) {
@@ -153,8 +185,13 @@ bambox::Error CdReader::load() {
         auto pkts = cd_pkt_reader(pkt.data);
 
         for (const auto &pkt_val : pkts) {
-          std::string &title_dest = (pkt.trk == 0) ? cd.title_ : cd.songs_[pkt.trk - 1].title_;
-          title_dest += pkt_val;
+          // pkt.trk is a track number off the disc, it may not be an audio track.
+          int idx = cd.index_of_track(pkt.trk);
+          if (pkt.trk == 0) {
+            cd.title_ += pkt_val;
+          } else if (idx >= 0) {
+            cd.songs_[idx].title_ += pkt_val;
+          }
           pkt.trk++;
         }
         break;
@@ -163,8 +200,12 @@ bambox::Error CdReader::load() {
         auto pkts = cd_pkt_reader(pkt.data);
 
         for (const auto &pkt_val : pkts) {
-          std::string &artist_dest = (pkt.trk == 0) ? cd.artist_ : cd.songs_[pkt.trk - 1].artist_;
-          artist_dest += pkt_val;
+          int idx = cd.index_of_track(pkt.trk);
+          if (pkt.trk == 0) {
+            cd.artist_ += pkt_val;
+          } else if (idx >= 0) {
+            cd.songs_[idx].artist_ += pkt_val;
+          }
           pkt.trk++;
         }
         break;
@@ -190,23 +231,24 @@ bambox::Error CdReader::load() {
       song.title_ = song.title_.substr(0, i);
     }
 
-    // Calculate length
-    song.length_ = std::chrono::seconds(LBA2SEC(song.end_lba_ - song.start_lba_)) +
-                   std::chrono::minutes(LBA2MIN(song.end_lba_ - song.start_lba_));
+    // Calculate length. LBA2SEC/LBA2MIN convert an *absolute* address and fold in
+    // the 150 sector pregap, so they can't be used on a difference.
+    song.length_ = std::chrono::seconds((song.end_lba_ - song.start_lba_ + 1) / SECTORS_PER_SEC);
   }
   current_cd_ = cd;
   update_disc_info();
-  set_position(1);
-  return {};
+  return set_position(current_cd_.songs_.front().track_num_);
 }
 
 bambox::Error CdReader::set_position(uint8_t track_num, uint32_t lba_offset) {
-  if (track_num > current_cd_.songs_.size() || track_num == 0) {
+  // songs_ holds audio tracks only, so the track number isn't an index into it.
+  int idx = current_cd_.index_of_track(track_num);
+  if (idx < 0) {
     return {ECode::ERR_RANGE, "Seek out of range for cd"};
   }
-  track_lba_start_ = current_cd_.songs_[track_num - 1].start_lba_;
-  track_lba_current_ = current_cd_.songs_[track_num - 1].start_lba_ + lba_offset;
-  track_lba_end_ = current_cd_.songs_[track_num - 1].end_lba_;
+  track_lba_start_ = current_cd_.songs_[idx].start_lba_;
+  track_lba_current_ = current_cd_.songs_[idx].start_lba_ + lba_offset;
+  track_lba_end_ = current_cd_.songs_[idx].end_lba_;
   track_num_ = track_num;
   return {};
 }
@@ -243,8 +285,9 @@ bambox::Error CdReader::read(CdReader::AudioData &audio) {
     return {ECode::ERR_NOFILE, "Disc not loaded"};
   }
 
-  // end of track return EOF
-  if (track_lba_current_ == track_lba_end_) {
+  // end of track return EOF. end_lba_ is the last sector of the track, and this
+  // has to be >= so a seek that lands past the end still terminates.
+  if (track_lba_current_ > track_lba_end_) {
     audio.frames = EOF;
     return {};
   }
@@ -255,8 +298,9 @@ bambox::Error CdReader::read(CdReader::AudioData &audio) {
     return {bambox::ECode::ERR_IO, "Failed to read CD", ret};
   }
 
-  audio.ts = std::chrono::minutes(LBA2MIN(track_lba_current_ - track_lba_start_)) +
-             std::chrono::seconds(LBA2SEC(track_lba_current_ - track_lba_start_));
+  // Elapsed time is a sector *difference*, so the absolute-address LBA2* macros
+  // (which add the 150 sector pregap) can't be used here.
+  audio.ts = std::chrono::seconds((track_lba_current_ - track_lba_start_) / SECTORS_PER_SEC);
   memcpy(audio.data.data(), req.data, sizeof(req.data));
   audio.frames = CDROM_CDDA_FRAME_SIZE / 4;
   track_lba_current_++;
@@ -276,7 +320,10 @@ static DiscId *create_disc_id_from_toc(const bambox::CdReader::CD &cd) {
     return NULL;
   }
   DiscId *disc = discid_new();
-  int offsets[cd.songs_.size() + 1];
+
+  // discid indexes offsets by CD track number, not by position in songs_, so the
+  // array has to be sized for the highest track number on the disc.
+  std::vector<int> offsets(cd.songs_.back().track_num_ + 1, 0);
 
   offsets[0] = cd.lout_track_lba_ + 150;
   spdlog::info("0={}", cd.lout_track_lba_ + 150);
@@ -285,7 +332,7 @@ static DiscId *create_disc_id_from_toc(const bambox::CdReader::CD &cd) {
     spdlog::info("{}={}", song.track_num_, song.start_lba_);
     offsets[song.track_num_] = song.start_lba_ + 150;
   }
-  bool success = discid_put(disc, cd.songs_.front().track_num_, cd.songs_.back().track_num_, offsets);
+  bool success = discid_put(disc, cd.songs_.front().track_num_, cd.songs_.back().track_num_, offsets.data());
   if (!success) {
     spdlog::warn("Failed to get disc id with: {}", discid_get_error_msg(disc));
     discid_free(disc);
@@ -324,6 +371,11 @@ bambox::Error CdReader::update_disc_info() {
   // TODO move this to a separate thread
   std::string json_val = "";
   auto disc_id = get_disc_id(current_cd_);
+
+  // Nothing else works if the cache dir isn't there.
+  std::error_code ec;
+  std::filesystem::create_directories(cfg_.cd_cache, ec);
+
   auto cached_path = cfg_.cd_cache + "/" + disc_id + ".json";
   if (std::filesystem::exists(cached_path)) {
     // Info already cached TODO(qawse3dr) we probably want a sqlite3 server for this instead of saving all
@@ -344,7 +396,14 @@ bambox::Error CdReader::update_disc_info() {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, discid_url_write_ftn);
     CURLcode curl_res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
+    fp.close();
     spdlog::info("update_disc_info discid={} curl_res={}", disc_id, curl_easy_strerror(curl_res));
+
+    // Don't leave a partial or error response behind to be cached forever.
+    if (curl_res != CURLE_OK) {
+      unlink(cached_path.c_str());
+      return {ECode::ERR_IO, fmt::format("Failed to fetch disc info: {}", curl_easy_strerror(curl_res))};
+    }
   }
 
   try {
@@ -361,9 +420,15 @@ bambox::Error CdReader::update_disc_info() {
       current_cd_.title_ = release["title"];
       for (auto track : release["media"][0]["tracks"]) {
         // TODO update to get it from the track info instead.
+        // "position" counts every track on the medium, data tracks included, so it
+        // is a CD track number and not an index into songs_.
         int track_num = track["position"];
-        current_cd_.songs_[track_num - 1].artist_ = current_cd_.artist_;
-        current_cd_.songs_[track_num - 1].title_ = track["title"];
+        int idx = current_cd_.index_of_track(track_num);
+        if (idx < 0) {
+          continue;
+        }
+        current_cd_.songs_[idx].artist_ = current_cd_.artist_;
+        current_cd_.songs_[idx].title_ = track["title"];
       }
       if (release["cover-art-archive"]["front"] == true) {
         current_cd_.release_id_ = release["id"];
@@ -385,6 +450,10 @@ bambox::Error CdReader::update_disc_info() {
       spdlog::info("Fetching album art from {}", album_art_url);
       for (int i = 0; i < 3 && curl_res != CURLE_OK; i++) {
         FILE *fp = fopen(current_cd_.album_art_path_.c_str(), "wb");
+        if (fp == NULL) {
+          spdlog::warn("Failed to open {} for writing: {}", current_cd_.album_art_path_, strerror(errno));
+          break;
+        }
         CURL *curl = curl_easy_init();
         curl_easy_setopt(curl, CURLOPT_URL, album_art_url.c_str());
         curl_easy_setopt(curl, CURLOPT_FILE, fp);
@@ -396,6 +465,12 @@ bambox::Error CdReader::update_disc_info() {
         spdlog::info("update_disc_info art curl_res={}", curl_easy_strerror(curl_res));
         curl_easy_cleanup(curl);
         fclose(fp);
+      }
+
+      // A partial download would otherwise be cached (and shown) forever.
+      if (curl_res != CURLE_OK) {
+        unlink(current_cd_.album_art_path_.c_str());
+        current_cd_.album_art_path_.clear();
       }
     }
   }

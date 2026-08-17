@@ -38,11 +38,24 @@ Error CdPlayer::start() {
 
 Error CdPlayer::load() {
   Error res;
-  do {
-    std::unique_lock<std::mutex> lk(mtx_);
-    res = reader_->load();
+  while (true) {
+    // Wait for media rather than spinning on open()/devctl() at full tilt.
+    if (!reader_->has_disc()) {
+      reader_->wait_for_disc();
+      continue;
+    }
+
+    {
+      std::unique_lock<std::mutex> lk(mtx_);
+      res = reader_->load();
+    }
+    if (res.is_ok()) {
+      break;
+    }
+
     spdlog::info("load result: {}", res.str());
-  } while (res.is_error());
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  }
 
   event_cb_(Event::CD_LOADED, reader_->get_disc());
   return res;
@@ -76,7 +89,9 @@ Error CdPlayer::pause() {
 
   // Briefly unlock to join the cd loop.
   lk.unlock();
-  cd_reader_loop_.join();
+  if (cd_reader_loop_.joinable()) {
+    cd_reader_loop_.join();
+  }
   lk.lock();
   state_ = State::STOPPED;
   return {};
@@ -101,7 +116,7 @@ void CdPlayer::cd_reader_loop() {
     }
     // No read the message outside of the lock checking the contents for any callbacks.
 
-    if (data.frames == EOF) {
+    if (err.is_ok() && data.frames == EOF) {
       // notify the track ended but keep reading, this assumes that the event_cb_ will update the reader
       EventData event_data(0);
       event_cb_(Event::CD_TRACK_ENDED, event_data);
@@ -109,15 +124,18 @@ void CdPlayer::cd_reader_loop() {
     }
 
     if (err.is_error()) {
-      state_ = State::STOPPED;
+      {
+        std::lock_guard<std::mutex> lk(mtx_);
+        state_ = State::STOPPED;
+      }
       EventData event_data(err);
       event_cb_(Event::CD_EJECTED, event_data);
       return;
     }
 
     auto ret = audio_player_->write(data.data.data(), data.frames);
-    if (ret != 0) {
-      spdlog::warn("Failed to write audio: %d", ret);
+    if (ret < 0) {
+      spdlog::warn("Failed to write audio: {}", ret);
     }
 
     // Update time after write as it is more important. Also only update if seconds actually changed, to avoid spam.

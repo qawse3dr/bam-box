@@ -24,7 +24,10 @@
 #include <getopt.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/spdlog.h>
+#include <unistd.h>
 
+#include <cerrno>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -82,12 +85,12 @@ static bambox::Error parse_config(bambox::BamBoxConfig& config, const char* conf
 
 bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]) {
   bambox::BamBoxConfig cfg;
-  int quiet_flag;
+  bool quiet = false;
   const char* short_args = "qhl:f:c:";
   option long_options[] = {{.name = "config", .has_arg = required_argument, .flag = 0, .val = 'c'},
                            {.name = "log-level", .has_arg = required_argument, .flag = 0, .val = 'l'},
                            {.name = "log-file", .has_arg = required_argument, .flag = 0, .val = 'f'},
-                           {.name = "quiet", .has_arg = required_argument, .flag = &quiet_flag, .val = 'q'},
+                           {.name = "quiet", .has_arg = no_argument, .flag = 0, .val = 'q'},
                            {.name = "help", .has_arg = no_argument, .flag = 0, .val = 'h'},
                            {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}};
 
@@ -103,6 +106,9 @@ bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]) {
         break;
       case 'c':
         config_path = optarg;
+        break;
+      case 'q':
+        quiet = true;
         break;
       case 'f':
         try {
@@ -131,6 +137,15 @@ bambox::Expected<bambox::BamBoxConfig> parse_cli(int argc, char* argv[]) {
       case '?':
         help_menu(std::cerr);
         return {ECode::ERR_INVAL_ARG, fmt::format("Error on {}", argv[opterr])};
+    }
+  }
+
+  // Done after parsing so it applies no matter where -q appeared. The console
+  // sink is the first one; a --log-file sink added above keeps its own level.
+  if (quiet) {
+    auto& sinks = spdlog::default_logger()->sinks();
+    if (!sinks.empty()) {
+      sinks.front()->set_level(spdlog::level::off);
     }
   }
 

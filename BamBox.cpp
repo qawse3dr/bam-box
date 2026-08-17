@@ -25,6 +25,7 @@
 #include <spdlog/spdlog.h>
 #include <sys/dcmd_cam.h>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
@@ -151,11 +152,12 @@ bambox::Error BamBox::config(BamBoxConfig&& cfg) {
   spdlog::info("Configuring Display");
   auto res = lcd_display_->init();
   if (res.is_error()) {
-    return {};
+    return res;
   }
 
   spdlog::info("Configuring Audio");
   for (const auto& audio_dev : cfg_.audio_devs) {
+    // Ignore devices in case one isn't attached
     audio_player_->create_device(audio_dev);
   }
   audio_player_->select_device(cfg_.default_audio_dev);
@@ -203,8 +205,12 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
     case CdPlayer::Event::CD_LOADED:
       spdlog::info("cd_event: LOADED");
       current_cd_ = std::get<CdReader::CD>(data);
-      cd_reader_->set_position(1);
+      if (current_cd_.songs_.empty()) {
+        spdlog::warn("cd_event: LOADED with no audio tracks");
+        break;
+      }
       current_song_ = current_cd_.songs_[0];
+      cd_reader_->set_position(current_song_.track_num_);
       ui_update_track_info();
       ui_update_album_art();
       cd_player_->play();
@@ -212,13 +218,18 @@ void BamBox::cd_player_event(CdPlayer::Event e, const CdPlayer::EventData& data)
       break;
     case CdPlayer::Event::CD_TRACK_ENDED: {
       spdlog::trace("cd_event: TRACK_ENDED");
-
-      auto track_num = (current_song_.track_num_ + 1);
-      if (track_num > current_cd_.songs_.size()) {
-        track_num = 1;
+      if (current_cd_.songs_.empty()) {
+        break;
       }
-      current_song_ = current_cd_.songs_[track_num - 1];
-      auto res = cd_reader_->set_position(track_num);
+
+      // songs_ holds audio tracks only, so step through it by position; track
+      // numbers can skip over data tracks.
+      int idx = current_cd_.index_of_track(current_song_.track_num_) + 1;
+      if (idx <= 0 || idx >= static_cast<int>(current_cd_.songs_.size())) {
+        idx = 0;
+      }
+      current_song_ = current_cd_.songs_[idx];
+      auto res = cd_reader_->set_position(current_song_.track_num_);
       ui_update_track_info();
       break;
     }
@@ -313,36 +324,47 @@ bambox::Error BamBox::go() {
 }
 
 bambox::Error BamBox::prev() {
+  if (current_cd_.songs_.empty()) {
+    return {ECode::ERR_INVAL_STATE, "No cd loaded"};
+  }
+
   cd_player_->pause();
   // todo update to just use current_ts
   auto current_lba = cd_reader_->get_track_current_lba();
   auto start_lba = cd_reader_->get_track_start_lba();
-  std::uint32_t three_sec_lba = MSF2LBA(0, 10, 0);
-  std::int32_t track_num = cd_reader_->get_track_number();
-  if ((current_lba - start_lba) <= three_sec_lba) {  // Play Previous track.
-    track_num--;
-    if (track_num <= 0) {
-      track_num = current_cd_.songs_.size();
+  std::uint32_t ten_sec_lba = MSF2LBA(0, 10, 0);
+  // Position in songs_, not a track number: songs_ skips data tracks.
+  std::int32_t idx = current_cd_.index_of_track(current_song_.track_num_);
+  if (idx < 0) {
+    idx = 0;
+  } else if ((current_lba - start_lba) <= ten_sec_lba) {  // Play Previous track.
+    idx--;
+    if (idx < 0) {
+      idx = current_cd_.songs_.size() - 1;
     }
   }  // Restart track
 
-  auto res = cd_reader_->set_position(track_num);
-  current_song_ = current_cd_.songs_[track_num - 1];
+  current_song_ = current_cd_.songs_[idx];
+  auto res = cd_reader_->set_position(current_song_.track_num_);
   ui_update_track_time(std::chrono::seconds(0));
   ui_update_track_info();
   cd_player_->play();
   return res;
 }
 
-bambox::Error BamBox::next(int track) {
-  auto track_num = (track == -1) ? (current_song_.track_num_ + 1) : track;
-  if (track_num > current_cd_.songs_.size()) {
-    track_num = 1;
+bambox::Error BamBox::next(int index) {
+  if (current_cd_.songs_.empty()) {
+    return {ECode::ERR_INVAL_STATE, "No cd loaded"};
+  }
+
+  auto idx = (index == -1) ? (current_cd_.index_of_track(current_song_.track_num_) + 1) : index;
+  if (idx <= 0 || idx >= static_cast<int>(current_cd_.songs_.size())) {
+    idx = 0;
   }
 
   cd_player_->pause();
-  auto res = cd_reader_->set_position(track_num);
-  current_song_ = current_cd_.songs_[track_num - 1];
+  current_song_ = current_cd_.songs_[idx];
+  auto res = cd_reader_->set_position(current_song_.track_num_);
   ui_update_track_info();
   cd_player_->play();
   return res;
@@ -407,10 +429,12 @@ void BamBox::ui_activate() {
         }
 
         ui_show_overlay(tracks_overlay_, InputState::LIST);
-        ui_set_list(tracks_overlay_list_, current_song_.track_num_ - 1);
+        ui_set_list(tracks_overlay_list_, std::max(0, current_cd_.index_of_track(current_song_.track_num_)));
       }));
-  menu_buttons_.add_button(std::make_unique<ui::BamBoxButton>(
-      builder, GID_MENU_BUTTONS_EJECT, [&](auto* gtk_button, auto* button) { cd_reader_->eject(); }));
+  menu_buttons_.add_button(
+      std::make_unique<ui::BamBoxButton>(builder, GID_MENU_BUTTONS_EJECT, [&](auto* gtk_button, auto* button) {
+        cd_reader_->eject();
+      }));
 
   menu_buttons_.add_button(
       std::make_unique<ui::BamBoxButton>(builder, GID_MENU_BUTTONS_SETTINGS, [&](auto* gtk_button, auto* button) {
@@ -422,10 +446,14 @@ void BamBox::ui_activate() {
         const auto& devs = cfg_.audio_devs;
         auto dev = std::find_if(devs.begin(), devs.end(),
                                 [&](const auto& d) { return d.display_name == cfg_.default_audio_dev; });
+        if (dev == devs.end()) {
+          return;
+        }
         gtk_label_set_label(settting_volume_label_, fmt::format("({}%)", dev->volume).c_str());
 
         // Display setting screen after values are set.
-        std::string stack_name = gtk_stack_get_visible_child_name(screen_stack_);
+        const char* visible_child = gtk_stack_get_visible_child_name(screen_stack_);
+        std::string stack_name = (visible_child != nullptr) ? visible_child : GID_SCREEN_STACK_MAIN_SCREEN;
         gtk_stack_set_visible_child_name(screen_stack_, GID_SCREEN_STACK_SETTING_SCREEN);
 
         setting_buttons_.select(0);
@@ -473,10 +501,10 @@ void BamBox::ui_activate() {
 
   tracks_overlay_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_OVERLAY_TRACKS));
   tracks_overlay_list_ = std::make_shared<ui::BamBoxList>(builder, GID_OVERLAY_TRACKS_LIST, GID_OVERLAY_TRACKS_WIN,
-                                                          [&](ui::BamBoxButton& button, int idx) { next(idx + 1); });
+                                                          [&](ui::BamBoxButton& button, int idx) { next(idx); });
 
   /******* SETTING BUTTONS  **************/
-  setting_win_ = GTK_SCROLLED_WINDOW(GTK_BUTTON(gtk_builder_get_object(builder, GID_SETTING_WIN)));
+  setting_win_ = GTK_SCROLLED_WINDOW(gtk_builder_get_object(builder, GID_SETTING_WIN));
   setting_buttons_.add_onhover([&](ui::BamBoxButton& button, int position) {
     // Make sure we can see the buttons off screen
     GtkAdjustment* vadj = gtk_scrolled_window_get_vadjustment(setting_win_);
@@ -508,6 +536,9 @@ void BamBox::ui_activate() {
         auto& devs = cfg_.audio_devs;
         auto dev = std::find_if(devs.begin(), devs.end(),
                                 [&](const auto& d) { return d.display_name == cfg_.default_audio_dev; });
+        if (dev == devs.end()) {
+          return;
+        }
         settings_volume_slider_->init(dev->volume);
         active_slider_ = settings_volume_slider_;
         ui_show_overlay(settings_volume_overlay_, InputState::VOLUME);
@@ -613,15 +644,27 @@ void BamBox::ui_activate() {
           cd_player_->pause();
           CdReader::AudioData data;
           char tmp_path[] = "/tmp/bambox-dump-XXXXXX";
-          mkdtemp(tmp_path);
+          if (mkdtemp(tmp_path) == nullptr) {
+            spdlog::error("Failed to create temp dir for dump: {}", strerror(errno));
+            cd_player_->play();
+            return;
+          }
           spdlog::info("Dumping album too {}", tmp_path);
-          for (const auto& song : current_cd_.songs_) {
-            dump_disc_progress_slider_->init_async(100.0 * (song.track_num_ - 1.0) / current_cd_.songs_.size());
+          for (size_t i = 0; i < current_cd_.songs_.size(); i++) {
+            const auto& song = current_cd_.songs_[i];
+            dump_disc_progress_slider_->init_async(100.0 * i / current_cd_.songs_.size());
             cd_reader_->set_position(song.track_num_);
 
-            std::string filename = fmt::format("{:02d} - {}.flac", song.track_num_, song.title_);
+            // A '/' in a track title would otherwise make this a path, not a name.
+            std::string title = song.title_;
+            std::replace(title.begin(), title.end(), '/', '_');
+            std::string filename = fmt::format("{:02d} - {}.flac", song.track_num_, title);
             std::string file_path = fmt::format("{}/{}", tmp_path, filename);
             FlacWriter writer(file_path, current_cd_, song.track_num_);
+            if (!writer.is_valid()) {
+              spdlog::error("Skipping track {}, could not open {}", song.track_num_, file_path);
+              continue;
+            }
             while (1) {
               auto res = cd_reader_->read(data);
               if (res.is_error()) {
@@ -633,7 +676,7 @@ void BamBox::ui_activate() {
               }
 
               writer.write(data.data.data(), data.frames);
-              if (data.ts != prev_sec) {
+              if (data.ts != prev_sec && song.length_.count() > 0) {
                 prev_sec = data.ts;
                 dump_song_progress_slider_->init_async(100.0 * data.ts.count() / (song.length_.count()));
               }
@@ -641,7 +684,8 @@ void BamBox::ui_activate() {
             writer.finish();
             webDAV.upload_file(upload_folder + "/" + filename, file_path);
           }
-          cd_reader_->set_position(0);
+          // Track 0 doesn't exist, put the reader back on the track that was playing.
+          cd_reader_->set_position(current_song_.track_num_);
           cd_player_->play();
           spdlog::info("Dumping finished album: {}", tmp_path);
 
@@ -658,6 +702,9 @@ void BamBox::ui_activate() {
         auto& devs = cfg_.audio_devs;
         auto dev = std::find_if(devs.begin(), devs.end(),
                                 [&](const auto& d) { return d.display_name == cfg_.default_audio_dev; });
+        if (dev == devs.end()) {
+          return;
+        }
         dev->volume = val;
         gtk_label_set_label(settting_volume_label_, fmt::format("({}%)", dev->volume).c_str());
         dump_config(cfg_);
@@ -674,7 +721,9 @@ void BamBox::ui_activate() {
         auto& devs = cfg_.audio_devs;
         auto dev = std::find_if(devs.begin(), devs.end(),
                                 [&](const auto& d) { return d.display_name == cfg_.default_audio_dev; });
-        gtk_label_set_label(settting_volume_label_, fmt::format("({}%)", dev->volume).c_str());
+        if (dev != devs.end()) {
+          gtk_label_set_label(settting_volume_label_, fmt::format("({}%)", dev->volume).c_str());
+        }
         gtk_label_set_label(settting_output_label_, fmt::format("({})", cfg_.default_audio_dev).c_str());
       });
 
@@ -740,9 +789,9 @@ void BamBox::ui_update_track_time(const std::chrono::seconds sec) {
     std::string time_text = "00:00/00:00";
 
     // TODO this isn't really thread safe we should have func which gives us both secs and length
-    if (bambox->current_cd_.songs_.size() > 0) {
-      auto song_length = bambox->current_song_.length_;
-      track_percent = static_cast<int>(100 * bambox->current_time_.count()) / song_length.count();
+    auto song_length = bambox->current_song_.length_;
+    if (bambox->current_cd_.songs_.size() > 0 && song_length.count() > 0) {
+      track_percent = 100.0 * bambox->current_time_.count() / song_length.count();
     }
 
     bambox->song_progress_->init(track_percent);

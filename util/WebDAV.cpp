@@ -24,6 +24,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include <cctype>
+#include <cerrno>
+#include <cstring>
+
+using bambox::ECode;
 using bambox::Error;
 using bambox::WebDAV;
 
@@ -31,13 +36,17 @@ WebDAV::WebDAV(const std::string& url, const std::string& user, const std::strin
     : url_(url), user_(user), password_(password) {}
 
 std::string WebDAV::encode_url(const std::string& path) {
-  std::string url = "";
-  for (char c : url_ + "/" + path) {
-    // for now only deal with spaces
-    if (isspace(c)) {
-      url += "%20";
+  // url_ is already a URL, so only the path appended to it gets escaped.
+  std::string url = url_ + "/";
+  static const char* hex = "0123456789ABCDEF";
+  for (unsigned char c : path) {
+    // Unreserved (RFC 3986) plus the separators that structure the path.
+    if (isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~' || c == '/') {
+      url += static_cast<char>(c);
     } else {
-      url += c;
+      url += '%';
+      url += hex[(c >> 4) & 0x0F];
+      url += hex[c & 0x0F];
     }
   }
   return url;
@@ -46,6 +55,9 @@ Error WebDAV::create_dir(const std::string& path) {
   std::string url = encode_url(path);
 
   CURL* curl = curl_easy_init();
+  if (curl == NULL) {
+    return {ECode::ERR_OOM, "Failed to create curl handle"};
+  }
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
   curl_easy_setopt(curl, CURLOPT_USERNAME, user_.c_str());
@@ -62,12 +74,19 @@ Error WebDAV::create_dir(const std::string& path) {
 
 Error WebDAV::upload_file(const std::string& remote_path, const std::string& path) {
   FILE* file = fopen(path.c_str(), "rb");
+  if (file == NULL) {
+    return {ECode::ERR_NOFILE, fmt::format("Failed to open {} for upload: {}", path, strerror(errno))};
+  }
   fseek(file, 0L, SEEK_END);
   long filesize = ftell(file);
   rewind(file);
 
   std::string url = encode_url(remote_path);
   CURL* curl = curl_easy_init();
+  if (curl == NULL) {
+    fclose(file);
+    return {ECode::ERR_OOM, "Failed to create curl handle"};
+  }
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
   curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);

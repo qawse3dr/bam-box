@@ -22,6 +22,8 @@
 
 #include <screen/screen.h>
 
+#include <atomic>
+#include <memory>
 #include <thread>
 
 #include "BamBoxError.hpp"
@@ -50,7 +52,8 @@ class LcdDisplay {
   std::thread display_thread_{};
   std::shared_ptr<platform::Gpio> gpio_;
   int spi_dev_ = -1;
-  State state_ = State::UNINIT;
+  /// Written by the destructor, polled by display_loop() to know when to stop.
+  std::atomic<State> state_ = State::UNINIT;
 
   screen_context_t screen_ctx_{};
   screen_display_t screen_dsy_{};

@@ -40,14 +40,21 @@ LcdDisplay::LcdDisplay(const std::shared_ptr<platform::Gpio> &gpio) : gpio_(gpio
 LcdDisplay::~LcdDisplay() {
   if (state_ == State::RUNNING) {
     state_ = State::STOPPING;
+  }
+  if (display_thread_.joinable()) {
     display_thread_.join();
   }
-  if (spi_dev_ == -1) {
+  if (spi_dev_ != -1) {
     close(spi_dev_);
+    spi_dev_ = -1;
   }
 
-  screen_destroy_pixmap(screen_pix_);
-  screen_destroy_context(screen_ctx_);
+  if (screen_pix_ != nullptr) {
+    screen_destroy_pixmap(screen_pix_);
+  }
+  if (screen_ctx_ != nullptr) {
+    screen_destroy_context(screen_ctx_);
+  }
 }
 
 bambox::Error LcdDisplay::init() {
@@ -181,8 +188,14 @@ bambox::Error LcdDisplay::init() {
 
   int ndisplays = 0;
   screen_get_context_property_iv(screen_ctx_, SCREEN_PROPERTY_DISPLAY_COUNT, &ndisplays);
+  if (ndisplays <= 0) {
+    return {ECode::ERR_NOFILE, "No displays available"};
+  }
 
   screen_display_t *screen_dlist = (screen_display_t *)calloc(ndisplays, sizeof(*screen_dlist));
+  if (screen_dlist == NULL) {
+    return {ECode::ERR_OOM, "Failed to allocate display list"};
+  }
   screen_get_context_property_pv(screen_ctx_, SCREEN_PROPERTY_DISPLAYS, (void **)screen_dlist);
 
   screen_dsy_ = screen_dlist[0];  // any screen_display_t from screen_dlist
@@ -263,7 +276,7 @@ void LcdDisplay::display_loop() {
   lcd_write_data((320 - 1) & 0xff);
   lcd_write_cmd(0x2C);
   // Img loop
-  while (1) {
+  while (state_ == State::RUNNING) {
     // Read and convert the image
     screen_read_display(screen_dsy_, screen_pix_buf, 0, NULL, 0);
     convert_img(screen_buf, screen_pix_ptr);

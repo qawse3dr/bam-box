@@ -42,6 +42,7 @@ class CdReader {
     std::string title_{};
     std::string artist_{};
     uint64_t start_lba_ = 0;
+    /// Last sector of the track (inclusive).
     uint64_t end_lba_ = 0;
     uint8_t track_num_ = 0;
   };
@@ -53,9 +54,22 @@ class CdReader {
     std::string release_id_{};
     std::string album_art_path_{};
     std::string release_date_ = "Unknown";
-    uint64_t sectors_;
+    uint64_t sectors_ = 0;
+    /// Audio tracks only; data tracks are not represented here, so a track's
+    /// position in this vector is NOT its CD track number. Use index_of_track().
     std::vector<Song> songs_{};
-    uint64_t lout_track_lba_;
+    uint64_t lout_track_lba_ = 0;
+
+    /// @return index into songs_ of the given CD track number, or -1 if that
+    ///         track number isn't an audio track on this disc.
+    int index_of_track(uint8_t track_num) const {
+      for (size_t i = 0; i < songs_.size(); i++) {
+        if (songs_[i].track_num_ == track_num) {
+          return static_cast<int>(i);
+        }
+      }
+      return -1;
+    }
   };
 
   enum class State { STOPPED, PLAYING, STOPPING };

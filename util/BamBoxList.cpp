@@ -68,7 +68,12 @@ void BamBoxList::add_label(const char* label) {
   gtk_label_set_max_width_chars(gtk_label, 15);
   
   gtk_list_box_append(as_list(), buttons_.back()->as_widget());
-  select(0);
+
+  // Only the first entry sets the selection; re-selecting on every add would
+  // reset the caller's chosen row and re-fire the hover callback each time.
+  if (buttons_.size() == 1) {
+    select(0);
+  }
 }
 
 void BamBoxList::select(int idx) { buttons_.select(idx); }
@@ -77,7 +82,7 @@ void BamBoxList::next() { buttons_.next(); }
 
 void BamBoxList::activate() {
   spdlog::info("active list");
-  if (cb_) {
+  if (cb_ && buttons_.size() > 0) {
     cb_(*buttons_.selected().get(), buttons_.get_selected_idx());
   }
 }

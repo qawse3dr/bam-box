@@ -61,11 +61,12 @@ class BamBox {
   void stop();
 
   /**
-   * @brief Plays next track, or given track
+   * @brief Plays next track, or the track at the given position
    *
-   * @param track Track to play, if negative one will default to next track
+   * @param index Position in the disc's audio track list, if negative one will
+   *              default to the next track
    */
-  Error next(int track = -1);
+  Error next(int index = -1);
   Error prev();
 
  private:
@@ -114,7 +115,7 @@ class BamBox {
   }
 
   void ui_set_list(std::shared_ptr<ui::BamBoxList>& list, size_t selected = 0) {
-    assert(list == nullptr && "list null");
+    assert(list != nullptr && "list null");
 
     active_list_ = list;
     active_list_->select(selected);

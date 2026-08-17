@@ -30,7 +30,7 @@ class BamBoxList : public BamBoxElement {
  private:
   ClickCb cb_;
   BamBoxButtonGroup buttons_;
-  GtkScrolledWindow* win_;
+  GtkScrolledWindow* win_ = nullptr;
 
  public:
   /**

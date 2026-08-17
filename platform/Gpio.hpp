@@ -21,10 +21,12 @@
  */
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <set>
 #include <thread>
 
@@ -85,6 +87,13 @@ class Gpio {
  private:
   volatile uint32_t *gpio_base_ = NULL;
   std::thread gpio_ist_thread_{};
+
+  /// Cleared to ask the interrupt thread to stop at its next wakeup.
+  std::atomic<bool> ist_running_{false};
+
+  /// Guards irq_map_, which register_irq() writes from the caller's thread while
+  /// the interrupt thread walks it.
+  std::mutex irq_mutex_{};
 
   // map from gpio to assocated irq
   std::map<unsigned int, IRQInfo> irq_map_;

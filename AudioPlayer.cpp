@@ -159,9 +159,9 @@ int AudioPlayer::write(void *data, int frames) {
   // This is a workaround for being paused.
   // I really need to update it to not pause on overruns
   if (ret < 0) {
-    snd_pcm_recover(current_dev_->handle, -EPIPE, 1);
+    snd_pcm_recover(current_dev_->handle, ret, 1);
   }
-  return 0;
+  return ret;
 }
 
 int AudioPlayer::select_device(const std::string &dev_name) {
@@ -175,6 +175,10 @@ int AudioPlayer::select_device(const std::string &dev_name) {
 }
 
 bambox::Error AudioPlayer::pause(bool resume) {
+  if (current_dev_ == nullptr) {
+    return {ECode::ERR_INVAL_STATE, "No audio device"};
+  }
+
   // pause takes the reverse of resume.
   snd_pcm_pause(current_dev_->handle, (resume) ? 1 : 0);
   snd_pcm_recover(current_dev_->handle, -EPIPE, 1);
@@ -182,6 +186,10 @@ bambox::Error AudioPlayer::pause(bool resume) {
 }
 
 bambox::Error AudioPlayer::set_volume(uint8_t percent) {
+  if (current_dev_ == nullptr) {
+    return {ECode::ERR_INVAL_STATE, "No audio device"};
+  }
+
   spdlog::info("Setting volume to {}%", percent);
 
   long min, max;
@@ -205,5 +213,5 @@ std::vector<std::string> AudioPlayer::get_device_names() const {
 }
 
 std::string AudioPlayer::get_selected_device_name() const {
-  return current_dev_->display_name;
+  return (current_dev_ != nullptr) ? current_dev_->display_name : "";
 }

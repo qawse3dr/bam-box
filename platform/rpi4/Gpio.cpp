@@ -57,17 +57,24 @@ using bambox::platform::Gpio;
 
 Gpio::Gpio() = default;
 Gpio::~Gpio() {
-  munmap_device_memory((void *)gpio_base_, BLOCK_SIZE);
-  // TODO(qawse3dr) cancel ist thread
+  // The IST is blocked in InterruptWait() and can't be woken, so ask it to exit
+  // and detach. Unmapping here would pull the registers out from under it, so
+  // leave the mapping for process exit to reclaim.
+  ist_running_ = false;
+  if (gpio_ist_thread_.joinable()) {
+    gpio_ist_thread_.detach();
+  }
 }
 
 int Gpio::init() {
   gpio_base_ = (volatile uint32_t *)mmap_device_memory(NULL, BLOCK_SIZE, PROT_NOCACHE | PROT_READ | PROT_WRITE, 0,
                                                        BCM2711_GPIO_BASE);
   if (gpio_base_ == MAP_FAILED) {
+    gpio_base_ = NULL;
     return errno;
   }
 
+  ist_running_ = true;
   gpio_ist_thread_ = std::thread(&Gpio::gpio_ist_func, this);
   return EOK;
 }
@@ -83,7 +90,7 @@ bambox::Expected<Gpio::GpioIRQHandle> Gpio::register_irq(unsigned int gpio, std:
   *(gpio_base_ + GPIO_GPFEN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPHEN0) &= ~(1 << gpio);
   *(gpio_base_ + GPIO_GPLEN0) &= ~(1 << gpio);
-  *(gpio_base_ + GPIO_GPEDS0) |= (1U << gpio);  // Clear the event
+  *(gpio_base_ + GPIO_GPEDS0) = (1U << gpio);  // Clear the event (write 1 to clear)
 
   if (type.count(TriggerType::RISING_EDGE)) {
     *(gpio_base_ + GPIO_GPREN0) |= (1 << gpio);
@@ -101,9 +108,12 @@ bambox::Expected<Gpio::GpioIRQHandle> Gpio::register_irq(unsigned int gpio, std:
     *(gpio_base_ + GPIO_GPLEN0) |= (1 << gpio);
   }
 
-  static GpioIRQHandle handle = 0;
-  irq_map_.insert(std::pair<unsigned int, IRQInfo>(gpio, (IRQInfo){irq_func, handle++, debounce_timeout}));
-  return {1};
+  static GpioIRQHandle next_handle = 0;
+  std::lock_guard<std::mutex> lk(irq_mutex_);
+  GpioIRQHandle handle = next_handle++;
+  // insert() would silently keep the old handler, so overwrite instead.
+  irq_map_.insert_or_assign(gpio, (IRQInfo){irq_func, handle, debounce_timeout});
+  return {handle};
 }
 
 int Gpio::level_get(unsigned int gpio) { return (*(gpio_base_ + GPIO_READ) >> gpio) & 0x1; }
@@ -151,7 +161,7 @@ void Gpio::gpio_ist_func() {
     return;
   }
 
-  while (1) {
+  while (ist_running_) {
     int rc = InterruptWait(_NTO_INTR_WAIT_FLAGS_UNMASK | _NTO_INTR_WAIT_FLAGS_FAST, NULL);
     if (rc != 0) {
       std::cout << "failed to wait for interupt" << std::endl;
@@ -161,17 +171,24 @@ void Gpio::gpio_ist_func() {
     auto now = std::chrono::steady_clock::now();
 
     uint32_t events = *(gpio_base_ + GPIO_GPEDS0);
-    for (auto &[gpio, irq_info] : irq_map_) {
-      if (events & (1U << gpio)) {
-        if ((irq_info.last_trigger + irq_info.debounce) < now) {
-          irq_info.func(gpio, level_get(gpio));
+
+    // GPEDS0 is write-1-to-clear, so |= would clear every other pin's pending
+    // event as well. Write back exactly the bits being handled here.
+    *(gpio_base_ + GPIO_GPEDS0) = events;
+
+    {
+      std::lock_guard<std::mutex> lk(irq_mutex_);
+      for (auto &[gpio, irq_info] : irq_map_) {
+        if (events & (1U << gpio)) {
+          if ((irq_info.last_trigger + irq_info.debounce) < now) {
+            irq_info.func(gpio, level_get(gpio));
+          }
+          irq_info.last_trigger = now;
         }
-        irq_info.last_trigger = now;
-        *(gpio_base_ + GPIO_GPEDS0) |= (1U << gpio);
       }
     }
     InterruptUnmask(0, id);
   }
-  // Handle errors.
+
   InterruptDetach(id);
 }

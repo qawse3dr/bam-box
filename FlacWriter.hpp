@@ -22,6 +22,7 @@
 #pragma once
 
 #include <FLAC++/encoder.h>
+#include <FLAC++/metadata.h>
 
 #include "AudioSink.hpp"
 #include "CdReader.hpp"
@@ -29,12 +30,26 @@
 namespace bambox {
 class FlacWriter : public AudioSink {
  public:
-  FlacWriter(const std::string& path, CdReader::CD&, int track);
+  /**
+   * @param path  file to write the encoded track to
+   * @param cd    disc the track belongs to, used for the tags
+   * @param track CD track number (not an index into cd.songs_)
+   */
+  FlacWriter(const std::string& path, const CdReader::CD& cd, int track);
+  FlacWriter(const FlacWriter&) = delete;
+  FlacWriter& operator=(const FlacWriter&) = delete;
+
   bool is_valid();
   int write(void* data, int frames) override;
   Error finish();
 
  private:
   FLAC::Encoder::File fp;
+
+  // The encoder only stores pointers to these, so they have to outlive init()
+  // and stay put until finish() has written the stream out.
+  FLAC::Metadata::VorbisComment comments_{};
+  FLAC::Metadata::Padding padding_{};
+  FLAC::Metadata::Prototype* meta_[2] = {&comments_, &padding_};
 };
 }  // namespace bambox

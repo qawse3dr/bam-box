@@ -21,6 +21,8 @@
  */
 #include "util/BamBoxButtonGroup.hpp"
 
+#include <algorithm>
+
 using bambox::ui::BamBoxButtonGroup;
 
 BamBoxButtonGroup::BamBoxButtonGroup() = default;
@@ -33,26 +35,34 @@ bambox::Error BamBoxButtonGroup::add_button(std::unique_ptr<BamBoxButton>&& butt
 void BamBoxButtonGroup::add_onhover(const HoverCb& hover) { hover_cb_ = hover; }
 
 void BamBoxButtonGroup::next() {
-  buttons_[idx_]->set_active(false);
-  idx_ = std::max(0UL, std::min(buttons_.size() - 1UL, idx_ + 1UL));
-  buttons_[idx_]->set_active(true);
-  if (hover_cb_) hover_cb_(*buttons_[idx_].get(), idx_);
+  if (buttons_.empty()) {
+    return;
+  }
+  // Clamped, not wrapped: the last button stays selected at the end of the group.
+  select(std::min(static_cast<size_t>(idx_) + 1, buttons_.size() - 1));
 }
 void BamBoxButtonGroup::prev() {
-  buttons_[idx_]->set_active(false);
-  idx_ = std::max(0UL, std::min(buttons_.size() - 1UL, idx_ - 1UL));
-  buttons_[idx_]->set_active(true);
-  if (hover_cb_) hover_cb_(*buttons_[idx_].get(), idx_);
+  if (buttons_.empty()) {
+    return;
+  }
+  select((idx_ > 0) ? static_cast<size_t>(idx_) - 1 : 0);
 }
-void BamBoxButtonGroup::click() { buttons_[idx_]->activate(); }
+void BamBoxButtonGroup::click() {
+  if (buttons_.empty()) {
+    return;
+  }
+  buttons_[idx_]->activate();
+}
 
 void BamBoxButtonGroup::select(size_t idx) {
-  if (idx < 0 || idx >= buttons_.size()) {
+  if (idx >= buttons_.size()) {
     return;
   }
 
-  buttons_[idx_]->set_active(false);
-  idx_ = idx;
+  if (static_cast<size_t>(idx_) < buttons_.size()) {
+    buttons_[idx_]->set_active(false);
+  }
+  idx_ = static_cast<int>(idx);
   buttons_[idx_]->set_active(true);
   if (hover_cb_) hover_cb_(*buttons_[idx_].get(), idx_);
 }

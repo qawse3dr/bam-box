@@ -29,23 +29,30 @@
 using bambox::FlacWriter;
 using FLAC::Metadata::VorbisComment;
 
-FlacWriter::FlacWriter(const std::string& path, CdReader::CD& cd, int track) {
+FlacWriter::FlacWriter(const std::string& path, const CdReader::CD& cd, int track) {
   fp.set_compression_level(5);
   fp.set_bits_per_sample(16);
   fp.set_channels(2);
   fp.set_sample_rate(44100);
 
-  VorbisComment comments;
-  FLAC::Metadata::Padding padding;
-  FLAC::Metadata::Prototype* meta[] = {&comments, &padding};
-  comments.append_comment(VorbisComment::Entry("ARTIST", cd.artist_.c_str()));
-  comments.append_comment(VorbisComment::Entry("DATE", cd.release_date_.c_str()));
-  comments.append_comment(VorbisComment::Entry("ALBUM", cd.title_.c_str()));
-  comments.append_comment(VorbisComment::Entry("TRACKNUMBER", std::to_string(track).c_str()));
-  comments.append_comment(VorbisComment::Entry("TITLE", cd.songs_[track].title_.c_str()));
-  padding.set_length(1024 * 8 );
-  fp.set_metadata(meta, 2);
-  fp.init(path);
+  // track is a CD track number, so it has to be looked up rather than used as an
+  // index; on a disc with a data track the two don't line up.
+  int idx = cd.index_of_track(track);
+
+  comments_.append_comment(VorbisComment::Entry("ARTIST", cd.artist_.c_str()));
+  comments_.append_comment(VorbisComment::Entry("DATE", cd.release_date_.c_str()));
+  comments_.append_comment(VorbisComment::Entry("ALBUM", cd.title_.c_str()));
+  comments_.append_comment(VorbisComment::Entry("TRACKNUMBER", std::to_string(track).c_str()));
+  if (idx >= 0) {
+    comments_.append_comment(VorbisComment::Entry("TITLE", cd.songs_[idx].title_.c_str()));
+  }
+  padding_.set_length(1024 * 8);
+  fp.set_metadata(meta_, 2);
+
+  FLAC__StreamEncoderInitStatus status = fp.init(path);
+  if (status != FLAC__STREAM_ENCODER_INIT_STATUS_OK) {
+    spdlog::error("Failed to open flac file {}: {}", path, FLAC__StreamEncoderInitStatusString[status]);
+  }
 }
 
 bool FlacWriter::is_valid() { return fp.is_valid(); }

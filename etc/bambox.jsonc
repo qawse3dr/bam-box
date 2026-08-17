@@ -33,10 +33,14 @@
       "dev": "pcmC0D0p",
       "mixer": "controlC0",
       "volume": 80
+    },
+    "USB": {
+      "dev": "pcmC2D0p",
+      "mixer": "controlC2",
+      "volume": 80
     }
-    // TODO USB
   },
-  "audio_dev_default": "Speakers", 
+  "audio_dev_default": "Speakers",
   "gpio": {
     "prev": 16,
     "play": 24,

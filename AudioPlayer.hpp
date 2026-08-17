@@ -65,7 +65,7 @@ class AudioPlayer : public AudioSink {
    */
   int select_device(const std::string &dev_name);
   Error set_volume(uint8_t volume_percent);
-  uint8_t get_volume() const { return current_dev_->volume; }
+  uint8_t get_volume() const { return (current_dev_ != nullptr) ? current_dev_->volume : 0; }
 
   /**
    * @brief Get a list of all configured devices by their human readable name
