@@ -363,7 +363,7 @@ std::string CdReader::get_freedb_id(const CD &cd) {
   return id;
 }
 
-bambox::Error CdReader::update_disc_info() {
+bambox::Error CdReader::update_disc_info(bool force) {
   if (handle_ < 0) {
     return {ECode::ERR_INVAL_STATE, "CD not loaded can't pull cd info."};
   }
@@ -377,7 +377,7 @@ bambox::Error CdReader::update_disc_info() {
   std::filesystem::create_directories(cfg_.cd_cache, ec);
 
   auto cached_path = cfg_.cd_cache + "/" + disc_id + ".json";
-  if (std::filesystem::exists(cached_path)) {
+  if (std::filesystem::exists(cached_path) && !force) {
     // Info already cached TODO(qawse3dr) we probably want a sqlite3 server for this instead of saving all
     // the json as it will take up a bunch of space we really don't need it to.
     spdlog::info("info for discid={} already cached", disc_id);
@@ -444,7 +444,7 @@ bambox::Error CdReader::update_disc_info() {
   // Pull album art if it doesn't exist
   if (!current_cd_.release_id_.empty()) {
     current_cd_.album_art_path_ = cfg_.cd_cache + "/" + current_cd_.release_id_ + ".jpg";
-    if (!std::filesystem::exists(current_cd_.album_art_path_)) {
+    if (!std::filesystem::exists(current_cd_.album_art_path_) || force) {
       CURLcode curl_res = CURLE_AGAIN;
       std::string album_art_url = "http://coverartarchive.org/release/" + current_cd_.release_id_ + "/front-250";
       spdlog::info("Fetching album art from {}", album_art_url);

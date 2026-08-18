@@ -115,7 +115,8 @@ class CdReader {
   Error load();
 
   /// Updates the disc info from the web or local cache.
-  Error update_disc_info();
+  /// @param force True to update the online metadata no matter if it is already cached
+  Error update_disc_info(bool force = false);
   Error wait_for_disc();
   bool has_disc();
 

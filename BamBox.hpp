@@ -176,6 +176,7 @@ class BamBox {
   // Setting Page
   ui::BamBoxButtonGroup setting_buttons_{};
   GtkScrolledWindow* setting_win_{};
+  GtkWidget* setting_win_content_{};
   GtkLabel* settting_output_label_{};
   GtkLabel* settting_volume_label_{};
   GtkSwitch* settting_theme_switch_{};

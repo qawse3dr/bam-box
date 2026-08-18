@@ -60,10 +60,12 @@ const char* GID_MENU_BUTTONS_SETTINGS = "settings-menu-button";
 
 // Settings Buttons
 const char* GID_SETTING_WIN = "setting-win";
+const char* GID_SETTING_WIN_CONTENT = "setting-win-content";
 const char* GID_SETTING_BUTTONS_VOLUME = "volume-settings-button";
 const char* GID_SETTING_BUTTONS_OUTPUT = "output-settings-button";
 const char* GID_SETTING_BUTTONS_THEME = "theme-settings-button";
 const char* GID_SETTING_BUTTONS_DUMP = "dump-settings-button";
+const char* GID_SETTING_BUTTONS_REFETCH = "refetch-metadata-settings-button";
 const char* GID_SETTING_BUTTONS_CD_INFO = "cd-info-setting-button";
 const char* GID_SETTING_BUTTONS_ABOUT = "about-setting-button";
 const char* GID_SETTING_BUTTONS_RESTART = "restart-setting-button";
@@ -505,6 +507,7 @@ void BamBox::ui_activate() {
 
   /******* SETTING BUTTONS  **************/
   setting_win_ = GTK_SCROLLED_WINDOW(gtk_builder_get_object(builder, GID_SETTING_WIN));
+  setting_win_content_ = GTK_WIDGET(gtk_builder_get_object(builder, GID_SETTING_WIN_CONTENT));
   setting_buttons_.add_onhover([&](ui::BamBoxButton& button, int position) {
     // Make sure we can see the buttons off screen
     GtkAdjustment* vadj = gtk_scrolled_window_get_vadjustment(setting_win_);
@@ -512,10 +515,10 @@ void BamBox::ui_activate() {
     double page = gtk_adjustment_get_page_size(vadj);
 
     graphene_rect_t rect;
-    (void)gtk_widget_compute_bounds(setting_buttons_.selected()->as_widget(), GTK_WIDGET(setting_win_), &rect);
+    (void)gtk_widget_compute_bounds(setting_buttons_.selected()->as_widget(), setting_win_content_, &rect);
     if (rect.origin.y < current) {
       gtk_adjustment_set_value(vadj, rect.origin.y);
-    } else if (current + page < rect.origin.y + rect.size.height + 10) {
+    } else if (current + page < rect.origin.y + rect.size.height) {
       gtk_adjustment_set_value(vadj, rect.origin.y + rect.size.height - page);
     }
   });
@@ -570,6 +573,28 @@ void BamBox::ui_activate() {
           }
           ui_hide_overlay();
         });
+      }));
+  setting_buttons_.add_button(
+      std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_BUTTONS_REFETCH, [&](auto* gtk_button, auto* button) {
+        if (current_cd_.songs_.empty()) {
+          return;  // no disc loaded
+        }
+        // Show the placeholder art right away so it's obvious a refresh is happening.
+        gtk_image_set_from_resource(album_art_, DEFAULT_IMAGE_PATH);
+        ui_pop_stack();
+
+        // wait to update the screen so ui_pop_stack() takes effect
+        auto cb = (GSourceOnceFunc) + [](BamBox* bambox) {
+          bambox->cd_reader_->update_disc_info(/*force=*/true);
+          bambox->current_cd_ = bambox->cd_reader_->get_disc();
+          int idx = bambox->current_cd_.index_of_track(bambox->current_song_.track_num_);
+          if (idx >= 0) {
+            bambox->current_song_ = bambox->current_cd_.songs_[idx];
+          }
+          bambox->ui_update_track_info();
+          bambox->ui_update_album_art();
+        };
+        g_idle_add_once(cb, this);
       }));
   setting_buttons_.add_button(
       std::make_unique<ui::BamBoxButton>(builder, GID_SETTING_BUTTONS_CD_INFO, [&](auto* gtk_button, auto* button) {
