@@ -23,8 +23,20 @@ label {
   font-size: 28px;
 }
 
+.splash-screen-background {
+	background-color: white;
+}
+
+.album-art {
+  border-radius: 16px;
+}
+
 .song-info-text {
-  font-size: 36px;
+  font-size: 30px;
+}
+
+.album-info-box {
+  border-radius: 30px;
 }
 
 .setting-menu-label {
@@ -76,6 +88,7 @@ label {
   padding: 10px;
   border: 5px;
   border-style: solid;
+	border-radius: 20px;
 }
 
 .list-item {

@@ -485,7 +485,8 @@ void BamBox::ui_activate() {
            << std::setfill('0') << (song_length.count() % 60);
         return ss.str();
       });
-  album_art_ = GTK_IMAGE(gtk_builder_get_object(builder, GID_SONG_INFO_ALBUM_ART));
+  album_art_ = GTK_PICTURE(gtk_builder_get_object(builder, GID_SONG_INFO_ALBUM_ART));
+  gtk_picture_set_resource(album_art_, DEFAULT_IMAGE_PATH);
 
   screen_stack_ = GTK_STACK(gtk_builder_get_object(builder, GID_SCREEN_STACK));
 
@@ -580,7 +581,7 @@ void BamBox::ui_activate() {
           return;  // no disc loaded
         }
         // Show the placeholder art right away so it's obvious a refresh is happening.
-        gtk_image_set_from_resource(album_art_, DEFAULT_IMAGE_PATH);
+        gtk_picture_set_resource(album_art_, DEFAULT_IMAGE_PATH);
         ui_pop_stack();
 
         // wait to update the screen so ui_pop_stack() takes effect
@@ -770,9 +771,9 @@ void BamBox::ui_activate() {
 void BamBox::ui_update_album_art() {
   auto cb = (GSourceOnceFunc)(+[](BamBox* bambox) {
     if (!bambox->current_cd_.album_art_path_.empty()) {
-      gtk_image_set_from_file(bambox->album_art_, bambox->current_cd_.album_art_path_.c_str());
+      gtk_picture_set_filename(bambox->album_art_, bambox->current_cd_.album_art_path_.c_str());
     } else {
-      gtk_image_set_from_resource(bambox->album_art_, DEFAULT_IMAGE_PATH);
+      gtk_picture_set_resource(bambox->album_art_, DEFAULT_IMAGE_PATH);
     }
   });
 

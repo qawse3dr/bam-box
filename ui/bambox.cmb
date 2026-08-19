@@ -1,12 +1,12 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no'?>
 <!DOCTYPE cambalache-project SYSTEM "cambalache-project.dtd">
-<!-- Created with Cambalache 0.96.3 -->
-<cambalache-project version="0.96.0" target_tk="gtk-4.0">
-  <gresources filename="bambox.gresource.xml" sha256="d3077d435babb6404bd158eff76e6db096c8821645822c522b26b7fa4e5b61f1"/>
-  <css filename="bambox.css" is_global="1"/>
-  <css filename="bambox_light.css" is_global="0"/>
-  <css filename="bambox_dark.css" is_global="1"/>
-  <ui filename="bambox.ui" sha256="12c3e221cb754554f05f04548107fb92a115a99bbbc1d6fea72c7f3655e62068">
+<!-- Created with Cambalache 1.0.3 -->
+<cambalache-project version="1.0.0" target_tk="gtk-4.0" depends="casilda-1.0,libadwaita-1,webkitgtk-6.0">
+  <gresources filename="bambox.gresource.xml" sha256="a9dd64dbca841f7c23203a51c9c5611aa423b81b8e37f1d9e16bef7b3ab52ffa"/>
+  <css is_global="1" filename="bambox.css" sha256="d9bb56a48716072d3a257202c1f10a1b541cf8cc283573a5553d3e883f6ceb4d"/>
+  <css is_global="0" filename="bambox_light.css" sha256="c0d3f4ab0ce2cd6ef0de38c4812792d97624e783653bacb189c36302c9703180"/>
+  <css is_global="1" filename="bambox_dark.css" sha256="301dfccf0c9d993455916aa8b2cdb29c3ba8c8e3bbe72262e27aed2da3a51acc"/>
+  <ui filename="bambox.ui" sha256="993f48556b76e475abdb09accac58683a459449c4e5cd52e497d94d2d43c5f59">
     <css-provider>bambox.css</css-provider>
     <css-provider>bambox_dark.css</css-provider>
   </ui>

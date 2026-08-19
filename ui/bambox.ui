@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- Created with Cambalache 0.96.3 -->
+<!-- Created with Cambalache 1.0.3 -->
 <interface domain="ca.larrycloud.bambox">
   <!-- interface-name bambox.ui -->
   <!-- interface-authors qawse3dr -->
@@ -24,14 +24,19 @@
         <child>
           <object class="GtkStackPage" id="screen-stack-splash-screen">
             <property name="child">
-              <object class="GtkImage">
-                <property name="halign">center</property>
-                <property name="height-request">480</property>
-                <property name="icon-size">large</property>
-                <property name="pixel-size">320</property>
-                <property name="resource">/ca/larrycloud/bambox/ui/res/logo.png</property>
-                <property name="valign">center</property>
-                <property name="width-request">640</property>
+              <object class="GtkBox">
+                <property name="css-classes">splash-screen-background</property>
+                <child>
+                  <object class="GtkImage">
+                    <property name="halign">center</property>
+                    <property name="height-request">480</property>
+                    <property name="icon-size">large</property>
+                    <property name="pixel-size">320</property>
+                    <property name="resource">/ca/larrycloud/bambox/ui/res/logo.png</property>
+                    <property name="valign">center</property>
+                    <property name="width-request">640</property>
+                  </object>
+                </child>
               </object>
             </property>
             <property name="name">splash-screen</property>
@@ -118,59 +123,73 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkImage" id="album-art">
+                      <object class="GtkPicture" id="album-art">
                         <property name="can-focus">False</property>
                         <property name="can-target">False</property>
+                        <property name="content-fit">cover</property>
+                        <property name="css-classes">album-art</property>
+                        <property name="file">res/logo.png</property>
                         <property name="halign">center</property>
+                        <property name="height-request">250</property>
                         <property name="margin-end">32</property>
                         <property name="margin-start">32</property>
-                        <property name="margin-top">10</property>
-                        <property name="pixel-size">250</property>
-                        <property name="resource">/ca/larrycloud/bambox/ui/res/logo.png</property>
+                        <property name="margin-top">5</property>
+                        <property name="overflow">hidden</property>
                         <property name="valign">center</property>
+                        <property name="width-request">270</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkLabel" id="track-name-text">
-                        <property name="css-classes">song-info-text</property>
-                        <property name="ellipsize">end</property>
-                        <property name="justify">center</property>
-                        <property name="label">Track Unknown</property>
-                        <property name="lines">1</property>
-                        <property name="max-width-chars">10</property>
-                        <property name="width-chars">10</property>
-                        <property name="wrap">True</property>
-                        <style>
-                          <class name="song-info-text"/>
-                        </style>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkLabel" id="artist-text">
-                        <property name="css-classes">song-info-text</property>
-                        <property name="ellipsize">end</property>
-                        <property name="justify">center</property>
-                        <property name="label">Artist Unknown</property>
-                        <property name="lines">1</property>
-                        <property name="max-width-chars">10</property>
-                        <property name="width-chars">10</property>
-                        <property name="wrap">True</property>
-                        <property name="wrap-mode">char</property>
-                        <style>
-                          <class name="song-info-text"/>
-                        </style>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkProgressBar" id="song-progress">
-                        <property name="hexpand">True</property>
+                      <object class="GtkBox">
+                        <property name="css-classes">album-info-box</property>
                         <property name="margin-bottom">10</property>
-                        <property name="margin-end">20</property>
-                        <property name="margin-start">20</property>
-                        <property name="margin-top">10</property>
-                        <property name="show-text">True</property>
-                        <property name="text">0:00/0:00</property>
-                        <property name="valign">end</property>
+                        <property name="margin-end">60</property>
+                        <property name="margin-start">60</property>
+                        <property name="orientation">vertical</property>
+                        <property name="vexpand">True</property>
+                        <child>
+                          <object class="GtkLabel" id="track-name-text">
+                            <property name="css-classes">song-info-text</property>
+                            <property name="ellipsize">end</property>
+                            <property name="justify">center</property>
+                            <property name="label">Track Unknown</property>
+                            <property name="lines">1</property>
+                            <property name="max-width-chars">10</property>
+                            <property name="width-chars">10</property>
+                            <property name="wrap">True</property>
+                            <style>
+                              <class name="song-info-text"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="artist-text">
+                            <property name="css-classes">song-info-text</property>
+                            <property name="ellipsize">end</property>
+                            <property name="justify">center</property>
+                            <property name="label">Artist Unknown</property>
+                            <property name="lines">1</property>
+                            <property name="max-width-chars">10</property>
+                            <property name="width-chars">10</property>
+                            <property name="wrap">True</property>
+                            <property name="wrap-mode">char</property>
+                            <style>
+                              <class name="song-info-text"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkProgressBar" id="song-progress">
+                            <property name="hexpand">True</property>
+                            <property name="margin-bottom">15</property>
+                            <property name="margin-end">20</property>
+                            <property name="margin-start">20</property>
+                            <property name="margin-top">5</property>
+                            <property name="show-text">True</property>
+                            <property name="text">0:00/0:00</property>
+                            <property name="valign">end</property>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
@@ -201,7 +220,7 @@
                         <property name="hexpand">True</property>
                         <property name="margin-bottom">20</property>
                         <property name="margin-end">20</property>
-                        <property name="margin-start">40</property>
+                        <property name="margin-start">20</property>
                         <property name="margin-top">20</property>
                       </object>
                     </child>
@@ -256,6 +275,7 @@
                     <property name="margin-end">100</property>
                     <property name="margin-start">100</property>
                     <property name="margin-top">40</property>
+                    <property name="opacity">0.0</property>
                     <property name="orientation">vertical</property>
                     <property name="valign">center</property>
                     <property name="vexpand">True</property>
@@ -621,6 +641,7 @@
                         <property name="hexpand">True</property>
                         <property name="hscrollbar-policy">never</property>
                         <property name="kinetic-scrolling">False</property>
+                        <property name="margin-bottom">1</property>
                         <property name="overflow">hidden</property>
                         <property name="overlay-scrolling">False</property>
                         <property name="propagate-natural-height">True</property>

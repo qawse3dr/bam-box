@@ -151,7 +151,7 @@ class BamBox {
   ui::BamBoxButtonGroup menu_buttons_{};
   std::array<GtkLabel*, 3> song_info_text_;
   std::shared_ptr<ui::BamBoxSlider> song_progress_{};
-  GtkImage* album_art_{};
+  GtkPicture* album_art_{};
 
   // Active objects
   std::shared_ptr<ui::BamBoxList> active_list_{};

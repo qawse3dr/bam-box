@@ -44,6 +44,10 @@ progressbar text {
   color: black;
 }
 
+.album-info-box {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
 .menu-button {
   background-color: #ff4539;
 }

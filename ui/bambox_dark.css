@@ -36,11 +36,15 @@ progressbar text {
 }
 
 .box-button {
-  background-color: #222226;
+  background-color: #646477;
 }
 
 .box-button:hover {
-  background-color: #38383b;
+  background-color: #1d1d1e;
+}
+
+.album-info-box {
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .menu-button:hover {
